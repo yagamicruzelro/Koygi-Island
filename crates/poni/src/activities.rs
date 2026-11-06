@@ -26,6 +26,8 @@ pub enum Activity {
     Media,
     Timer,
     MediaTimer,
+    Discord,
+    MediaDiscord,
     /// Prayer times: the minutes before the next prayer.
     Prayer,
     /// Show over games: frame rate, GPU and CPU while a full-screen app is in front.
@@ -128,6 +130,8 @@ pub fn content_key(m: &Mode) -> u32 {
         Mode::Activity(Activity::Media) => 2,
         Mode::Activity(Activity::Timer) => 3,
         Mode::Activity(Activity::MediaTimer) => 4,
+        Mode::Activity(Activity::Discord) => 50,
+        Mode::Activity(Activity::MediaDiscord) => 51,
         Mode::Activity(Activity::Prayer) => 5,
         Mode::Activity(Activity::Game) => 6,
         Mode::Activity(Activity::Recording) => 7,
@@ -188,9 +192,20 @@ pub fn current_activity(st: &AppState) -> Option<Activity> {
     if st.game.active {
         return Some(Activity::Game);
     }
-    let media = st.settings.show_media_activity
+    let discord = st.discord.in_voice;
+    let playing_now = st.settings.show_media_activity && st.media.as_ref().is_some_and(|m| m.is_playing());
+    let media_grace = st.settings.show_media_activity
         && st.media.as_ref().is_some_and(|m| m.is_playing() || media_grace_end(st).is_some_and(|end| st.now < end));
     let timer = st.pomodoro.is_active();
+
+    if discord {
+        if playing_now {
+            return Some(Activity::MediaDiscord);
+        } else {
+            return Some(Activity::Discord);
+        }
+    }
+    let media = media_grace;
     match (media, timer) {
         (true, true) => Some(Activity::MediaTimer),
         (true, false) => Some(Activity::Media),
@@ -273,12 +288,12 @@ pub fn geom(m: &Mode, st: &AppState) -> Geom {
                     Some(ClockBadge::Low(_)) => 34.0,
                     None => 0.0,
                 };
-                let lead = if oyen::on(st.settings.theme) { OYEN_CLOCK_LEAD } else { 0.0 };
+                let lead = if oyen::on(st.settings.theme) || crate::corgi::on(st.settings.theme) { OYEN_CLOCK_LEAD } else { 0.0 };
                 Geom::new(base + badge + lead, 30.0, 14.0)
             }
             IdleStyle::Minimal => Geom::new(150.0, 26.0, 12.0),
             // A little taller than the eyes, so his ears clear the top edge.
-            IdleStyle::Eyes if oyen::on(st.settings.theme) => Geom::new(104.0, 36.0, 16.0),
+            IdleStyle::Eyes if oyen::on(st.settings.theme) || crate::corgi::on(st.settings.theme) => Geom::new(104.0, 36.0, 16.0),
             IdleStyle::Eyes => Geom::new(118.0, 30.0, 14.0),
             IdleStyle::Hidden => hidden_strip(),
         },
@@ -305,6 +320,8 @@ pub fn geom(m: &Mode, st: &AppState) -> Geom {
             Geom::new(if long { 112.0 } else { 96.0 }, 32.0, 15.0)
         }
         Mode::Activity(Activity::MediaTimer) => Geom::new(132.0, 32.0, 15.0),
+        Mode::Activity(Activity::Discord) => Geom::new(176.0, 32.0, 15.0),
+        Mode::Activity(Activity::MediaDiscord) => Geom::new(236.0, 32.0, 15.0),
         Mode::Activity(Activity::Prayer) => Geom::new(PRAYER_W, 32.0, 15.0),
         Mode::Activity(Activity::Game) => Geom::new(if game_temp(st).is_some() { GAME_W } else { GAME_NO_TEMP_W }, 32.0, 15.0),
         Mode::Activity(Activity::Recording) => Geom::new(recording_w(st), 32.0, 15.0),
@@ -333,6 +350,12 @@ fn hidden_strip() -> Geom {
 pub fn is_live(m: &Mode, st: &AppState) -> bool {
     if let Some(live) = crate::pill::is_live(m, st) {
         return live;
+    }
+    match m {
+        Mode::Activity(Activity::Discord) | Mode::Activity(Activity::MediaDiscord) => {
+            return st.discord.in_voice && !st.discord.is_muted;
+        }
+        _ => {}
     }
     let Some(media) = st.media.as_ref() else { return false };
     match m {
@@ -387,7 +410,8 @@ const BLINK_LEN: f64 = 0.14;
 
 /// Oyen shows in the idle pill (the clock and "Oyen" looks of his theme).
 fn oyen_idle(st: &AppState) -> bool {
-    oyen::on(st.settings.theme) && matches!(st.settings.idle_style, IdleStyle::Clock | IdleStyle::Status | IdleStyle::Eyes)
+    (oyen::on(st.settings.theme) || crate::corgi::on(st.settings.theme))
+        && matches!(st.settings.idle_style, IdleStyle::Clock | IdleStyle::Status | IdleStyle::Eyes)
 }
 
 /// Oyen sleeps from midnight to five.
@@ -429,41 +453,67 @@ fn draw_idle(ui: &mut Ui, st: &mut AppState, body: Rect) {
     let cy = body.center().y;
     match st.settings.idle_style {
         IdleStyle::Clock | IdleStyle::Status => {
-            // Oyen theme: he peeks on the left and the clock centres in the rest.
-            let body = if oyen::on(st.settings.theme) {
-                draw_oyen_rest(ui, st, body, body.x + 11.0 + OYEN_CLOCK_W / 2.0, OYEN_CLOCK_W, body.bottom() - 5.0);
-                Rect::new(body.x + OYEN_CLOCK_LEAD, body.y, body.w - OYEN_CLOCK_LEAD, body.h)
-            } else {
-                body
-            };
+            let has_mascot = oyen::on(st.settings.theme) || crate::corgi::on(st.settings.theme);
             let time = fmt_clock(&st.local, st.settings.use_24h);
             let ts = TextStyle::body().weight(Weight::Semibold).tabular();
-            let Some(badge) = clock_badge(st) else {
-                ui.c.text(&time, body, &ts.center());
-                return;
-            };
-            // Badge + gap + time, centred as one group.
             let (tw, _) = ui.c.measure(&time, &ts, 400.0);
+
             let pct_ts = TextStyle::footnote().weight(Weight::Semibold).tabular().color(palette::RED);
-            let (bw, pct) = match badge {
-                ClockBadge::Charging => (BOLT_VISIBLE, String::new()),
-                ClockBadge::Low(p) => {
+            let (bw, pct) = match clock_badge(st) {
+                Some(ClockBadge::Charging) => (BOLT_VISIBLE, String::new()),
+                Some(ClockBadge::Low(p)) => {
                     let s = format!("{p}%");
                     (ui.c.measure(&s, &pct_ts, 100.0).0, s)
                 }
+                None => (0.0, String::new()),
             };
-            let x0 = body.center().x - (bw + BADGE_GAP + tw) / 2.0;
-            match badge {
-                ClockBadge::Charging => {
-                    let r = Rect::new(x0 - BOLT_INSET, cy - BOLT / 2.0, BOLT, BOLT);
-                    ui.c.icon(Icon::Bolt, r, palette::GREEN);
+
+            let badge_w = if bw > 0.0 { bw + BADGE_GAP } else { 0.0 };
+            let clock_group_w = badge_w + tw;
+            let (clock_x, mascot_cx) = if has_mascot {
+                let lead = OYEN_CLOCK_LEAD;
+                let clock_area_x = body.x + lead;
+                let clock_area_w = (body.w - lead).max(clock_group_w);
+                let clk_x = clock_area_x + (clock_area_w - clock_group_w) / 2.0;
+                let mas_cx = body.x + (clk_x - body.x) / 2.0;
+                (clk_x, Some(mas_cx))
+            } else {
+                (body.center().x - clock_group_w / 2.0, None)
+            };
+
+            if let Some(cx) = mascot_cx {
+                let bar_y = body.bottom() - 5.5;
+                if oyen::on(st.settings.theme) {
+                    draw_oyen_rest(ui, st, body, cx, OYEN_CLOCK_W, bar_y);
+                } else if crate::corgi::on(st.settings.theme) {
+                    let look = ui.input.mouse.map(|p| (p.x - body.center().x) / (body.w / 2.0));
+                    ui.request_anim();
+                    crate::corgi::rest_peek(ui.c, cx, bar_y, OYEN_CLOCK_W, body.y + 1.0, ui.now, night(st), look);
                 }
-                ClockBadge::Low(_) => ui.c.text(&pct, Rect::new(x0, body.y, bw + 2.0, body.h), &pct_ts),
             }
-            ui.c.text(&time, Rect::new(x0 + bw + BADGE_GAP, body.y, tw + 2.0, body.h), &ts);
+            if let Some(badge) = clock_badge(st) {
+                match badge {
+                    ClockBadge::Charging => {
+                        let r = Rect::new(clock_x - BOLT_INSET, cy - BOLT / 2.0, BOLT, BOLT);
+                        ui.c.icon(Icon::Bolt, r, palette::GREEN);
+                    }
+                    ClockBadge::Low(_) => {
+                        ui.c.text(&pct, Rect::new(clock_x, body.y, bw + 2.0, body.h), &pct_ts);
+                    }
+                }
+            }
+            let time_x = clock_x + badge_w;
+            ui.c.text(&time, Rect::new(time_x, body.y, tw + 2.0, body.h), &ts);
         }
         IdleStyle::Eyes if oyen::on(st.settings.theme) => {
             draw_oyen_rest(ui, st, body, body.center().x, OYEN_IDLE_W, body.bottom() - 7.0);
+        }
+        IdleStyle::Eyes if crate::corgi::on(st.settings.theme) => {
+            let look = ui.input.mouse.map(|p| (p.x - body.center().x) / (body.w / 2.0));
+            if night(st) || look.is_some() {
+                ui.request_anim();
+            }
+            crate::corgi::rest_peek(ui.c, body.center().x, body.bottom() - 7.0, OYEN_IDLE_W, body.y + 1.0, ui.now, night(st), look);
         }
         IdleStyle::Eyes => {
             // Eyes glance toward the cursor while hovering.
@@ -486,15 +536,26 @@ pub fn draw_eyes(ui: &mut Ui, st: &AppState, cx: f32, cy: f32, look: f32) {
     }
 }
 
-/// Little equalizer (4 bars): animated while playing, low and static when paused.
-fn equalizer(ui: &mut Ui, r: Rect, color: Color, playing: bool, t: f64) {
-    let n = 4;
-    let gap = 2.5;
+/// Little equalizer (4 bars): animated while playing to real audio bands, low and static when paused.
+pub(crate) fn equalizer(ui: &mut Ui, r: Rect, color: Color, playing: bool, t: f64) {
+    let n = 8;
+    let gap = 1.8;
     let bw = (r.w - gap * (n as f32 - 1.0)) / n as f32;
+    let bands = if playing {
+        crate::services::audio_meter::current_bands()
+    } else {
+        [0.0; 8]
+    };
     for i in 0..n {
-        let phase = t * (5.0 + i as f64 * 1.3) + i as f64 * 1.7;
-        let amp = if playing { 0.35 + 0.65 * (0.5 + 0.5 * phase.sin()) as f32 } else { 0.25 };
-        let h = (r.h * amp).max(3.0);
+        let band_val = bands[i];
+        let amp = if playing {
+            let phase = i as f64 * 0.75;
+            let ripple = ((t * 8.0 + phase).sin() * 0.07) as f32;
+            (band_val + ripple * (1.0 - band_val)).clamp(0.06, 1.0)
+        } else {
+            0.10
+        };
+        let h = (r.h * amp).max(2.5);
         let x = r.x + i as f32 * (bw + gap);
         ui.c.fill_rrect(Rect::new(x, r.center().y - h / 2.0, bw, h), bw / 2.0, color);
     }
@@ -571,27 +632,39 @@ pub fn draw_music(ui: &mut Ui, st: &mut AppState, body: Rect, words: bool) {
     let art = Rect::new(body.x + 12.0, cy - 11.0, 22.0, 22.0);
     let playing = st.media.as_ref().is_some_and(|m| m.is_playing());
     art_or_icon(ui, st, art, playing);
-    let eq = Rect::new(body.right() - 34.0, cy - 8.0, 20.0, 16.0);
+    let has_mascot = oyen::on(st.settings.theme) || crate::corgi::on(st.settings.theme);
+    let (char_cx, eq_rect) = if has_mascot {
+        let cx = body.right() - 24.0;
+        let eq = Rect::new(cx - 18.0 - 24.0, cy - 8.0, 24.0, 16.0);
+        (Some(cx), eq)
+    } else {
+        let eq = Rect::new(body.right() - 34.0, cy - 8.0, 20.0, 16.0);
+        (None, eq)
+    };
+
+    equalizer(ui, eq_rect, st.media_accent(), playing, st.now);
+
     let sings = words && crate::pill::lyric::sings(st);
     let alpha = if sings { 1.0 } else { peek_alpha(st, body.w) };
-    if oyen::on(st.settings.theme) {
-        // Oyen bops to the music where the equalizer would be, and a
-        // note floats up beside him on every beat (the ones on his
-        // left make way for the words: the sung line or the title).
-        let (cx, bar_y) = (body.right() - 26.0, body.bottom() - 5.0);
-        st.ui.notes.step(st.now, playing);
+
+    if let Some(cx) = char_cx {
+        let bar_y = cy + 9.5;
         let sky = Rect::new(body.x, body.y + 1.0, body.w, body.h - 1.0);
-        oyen::notes(ui.c, &st.ui.notes, st.now, cx, bar_y, sky, 1.0 - alpha);
-        let f = oyen::music(st.now, playing, st.media_paused_at);
-        oyen::peek(ui.c, &f, cx, bar_y, OYEN_MEDIA_W, body.y + 1.0);
-    } else {
-        equalizer(ui, eq, st.media_accent(), playing, st.now);
+        if oyen::on(st.settings.theme) {
+            st.ui.notes.step(st.now, playing);
+            oyen::notes(ui.c, &st.ui.notes, st.now, cx, bar_y, sky, 1.0 - alpha);
+            let f = oyen::music(st.now, playing, st.media_paused_at);
+            oyen::peek(ui.c, &f, cx, bar_y, 22.0, body.y + 1.0);
+        } else if crate::corgi::on(st.settings.theme) {
+            crate::corgi::music_peek(ui.c, cx, bar_y, 22.0, body.y + 1.0, st.now, playing);
+        }
     }
+
     if sings {
         use crate::pill::media::{middle, PAUSED_TEXT, TEXT_CLEAR};
-        middle(ui, st, body, art.right() + TEXT_CLEAR, eq.x - TEXT_CLEAR, if playing { 1.0 } else { PAUSED_TEXT });
+        middle(ui, st, body, art.right() + TEXT_CLEAR, eq_rect.x - TEXT_CLEAR, if playing { 1.0 } else { PAUSED_TEXT });
     } else if alpha > 0.01 {
-        draw_peek(ui, st, art.right() + 10.0, eq.x - 10.0, body, alpha);
+        draw_peek(ui, st, art.right() + 10.0, eq_rect.x - 8.0, body, alpha);
     }
 }
 
@@ -631,6 +704,8 @@ fn draw_activity(ui: &mut Ui, st: &mut AppState, a: Activity, body: Rect) {
         Activity::Recording => draw_recording(ui, st, body),
         Activity::Download => draw_download(ui, st, body),
         Activity::Notes => draw_notes(ui, st, body),
+        Activity::Discord => draw_discord(ui, st, body),
+        Activity::MediaDiscord => draw_media_discord(ui, st, body),
         Activity::MediaTimer => {
             // Art on the left; the ring sits right next to its countdown.
             art_or_icon(ui, st, art, playing);
@@ -703,6 +778,98 @@ fn draw_recording(ui: &mut Ui, st: &AppState, body: Rect) {
     recording_mark(ui, st, Point::new(body.x + 12.0 + 6.0, body.center().y));
     let (text, ts) = recording_time(st);
     ui.c.text(&text, Rect::new(body.x + 30.0, body.y, body.w - 30.0 - 14.0, body.h), &ts.right());
+}
+
+fn draw_discord(ui: &mut Ui, st: &AppState, body: Rect) {
+    let cy = body.center().y;
+    let mic_r = Rect::new(body.x + 12.0, cy - 8.0, 16.0, 16.0);
+
+    let peak = crate::services::discord::current_mic_peak();
+    let norm_peak = ((peak - 0.035).max(0.0) / 0.25).min(1.0);
+    let is_speaking = norm_peak > 0.05 && !st.discord.is_muted;
+
+    let mic_color = if st.discord.is_muted {
+        Color::rgba(0.95, 0.25, 0.25, 1.0)
+    } else if is_speaking {
+        Color::rgba(0.2, 0.95, 0.45, 1.0)
+    } else {
+        Color::rgba(0.14, 0.75, 0.38, 1.0)
+    };
+    ui.c.icon(Icon::Mic, mic_r, mic_color);
+
+    let channel_name = if !st.discord.channel.is_empty() && st.discord.channel != "Voice Connected" {
+        st.discord.channel.as_str()
+    } else if !st.discord.server.is_empty() {
+        st.discord.server.as_str()
+    } else {
+        "Voice"
+    };
+    let text_r = Rect::new(body.x + 32.0, body.y, body.w - 68.0, body.h);
+    let ts = TextStyle::body().weight(Weight::Medium).color(Color::white(0.95));
+    ui.c.text(channel_name, text_r, &ts);
+
+    let eq_r = Rect::new(body.right() - 32.0, cy - 8.0, 20.0, 16.0);
+    let n = 4;
+    let gap = 2.5;
+    let bw = (eq_r.w - gap * (n as f32 - 1.0)) / n as f32;
+    for i in 0..n {
+        let phase = st.now * (7.0 + i as f64 * 2.2) + i as f64 * 1.5;
+        let amp = if is_speaking {
+            (0.35 + 0.65 * (0.5 + 0.5 * phase.sin()) as f32 * norm_peak).clamp(0.25, 1.0)
+        } else {
+            0.18
+        };
+        let h = if is_speaking { (eq_r.h * amp).max(3.0) } else { 3.0 };
+        let x = eq_r.x + i as f32 * (bw + gap);
+        ui.c.fill_rrect(Rect::new(x, eq_r.center().y - h / 2.0, bw, h), bw / 2.0, mic_color);
+    }
+}
+
+fn draw_media_discord(ui: &mut Ui, st: &mut AppState, body: Rect) {
+    let gap = 12.0;
+    let right_w = 34.0;
+    let left_w = (body.w - gap - right_w).max(40.0);
+    let left_body = Rect::new(body.x, body.y, left_w, body.h);
+    let right_body = Rect::new(body.x + left_w + gap, body.y, right_w, body.h);
+
+    // Left pill: Media
+    let cy = left_body.center().y;
+    let art_r = Rect::new(left_body.x + 8.0, cy - 10.0, 20.0, 20.0);
+    let playing = st.media.as_ref().is_some_and(|m| m.is_playing());
+    art_or_icon(ui, st, art_r, playing);
+
+    let title = st.media.as_ref().map(|m| m.title.as_str()).unwrap_or("Music");
+    let eq_r = Rect::new(left_body.right() - 44.0, cy - 9.0, 36.0, 18.0);
+    let text_max_w = (eq_r.x - 8.0 - (left_body.x + 32.0)).max(10.0);
+    let text_r = Rect::new(left_body.x + 32.0, left_body.y, text_max_w, left_body.h);
+    let ts = TextStyle::body().weight(Weight::Medium).color(Color::white(0.95));
+    ui.c.clip(text_r);
+    ui.c.text(title, text_r, &ts);
+    ui.c.unclip();
+
+    let accent = st.media.as_ref().and_then(|m| m.art_color).unwrap_or(st.accent);
+    equalizer(ui, eq_r, accent, playing, st.now);
+
+    // Right bubble: Discord Voice
+    let r_cy = right_body.center().y;
+    let r_mic = Rect::new(right_body.center().x - 8.0, r_cy - 8.0, 16.0, 16.0);
+
+    let peak = crate::services::discord::current_mic_peak();
+    let norm_peak = ((peak - 0.035).max(0.0) / 0.25).min(1.0);
+    let is_speaking = norm_peak > 0.05 && !st.discord.is_muted;
+
+    let mic_color = if st.discord.is_muted {
+        Color::rgba(0.95, 0.25, 0.25, 1.0)
+    } else if is_speaking {
+        Color::rgba(0.2, 0.95, 0.45, 1.0)
+    } else {
+        Color::rgba(0.14, 0.75, 0.38, 1.0)
+    };
+    if is_speaking {
+        let pulse = (peak * 3.0).min(1.0);
+        ui.c.stroke_circle(right_body.center(), right_body.w / 2.0 - 2.0, mic_color.with_alpha(0.3 + 0.4 * pulse), 1.5);
+    }
+    ui.c.icon(Icon::Mic, r_mic, mic_color);
 }
 
 /// The recording's mark at `c`: the red dot; a solid pause mark while
@@ -1097,7 +1264,7 @@ mod tests {
         let mut st = playing(Some("[00:10.00]紙の舟よ\n[00:14.00]Paper boats\n"));
         assert_eq!(geom(&media, &st).h, 32.0, "no readings: one row");
         st.lyrics.ruby = vec![vec![Ruby { text: "紙の舟よ".into(), roman: "kami no fune yo".into() }], Vec::new()];
-        for theme in [Theme::Classic, Theme::Oyen, Theme::Glass, Theme::Pill] {
+        for theme in [Theme::Classic, Theme::Oren, Theme::Corgi, Theme::Pill] {
             st.settings.theme = theme;
             assert_eq!(geom(&media, &st).h, crate::pill::media::H_READS, "{theme:?}: the line over its reading");
         }
@@ -1274,7 +1441,7 @@ mod tests {
         use poni_core::settings::Theme;
         let m = Mode::Activity(Activity::Download);
         let mut st = with_downloads(AppState::new(Settings::default(), Store::default()), 1);
-        for theme in [Theme::Classic, Theme::Oyen, Theme::Glass, Theme::Pill] {
+        for theme in [Theme::Classic, Theme::Oren, Theme::Corgi, Theme::Pill] {
             st.settings.theme = theme;
             assert!(!is_live(&m, &st), "{theme:?}");
             assert_eq!(next_wake(&m, &st), None, "{theme:?}: it repaints as yt-dlp reports");
@@ -1306,7 +1473,7 @@ mod tests {
         // A second one, queued: the count shows beside the mark.
         add(&mut st, "https://archive.org/details/BigBuckBunny_124");
         assert!(download_many(&st));
-        for theme in [Theme::Classic, Theme::Oyen, Theme::Glass, Theme::Pill] {
+        for theme in [Theme::Classic, Theme::Oren, Theme::Corgi, Theme::Pill] {
             st.settings.theme = theme;
             assert_eq!(geom(&m, &st).w, DOWNLOAD_MANY_W, "{theme:?}");
         }

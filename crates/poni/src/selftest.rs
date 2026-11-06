@@ -2441,8 +2441,8 @@ impl SelfTest {
             scroll_hz: std::env::var("PONI_SELFTEST_SCROLL").ok().and_then(|v| v.trim().parse().ok()).filter(|hz: &f64| (20.0..=500.0).contains(hz)),
             dpi_applied: false,
             theme: match std::env::var("PONI_SELFTEST_THEME").map(|v| v.trim().to_ascii_lowercase()).as_deref() {
-                Ok("oyen") => Theme::Oyen,
-                Ok("glass") => Theme::Glass,
+                Ok("oyen") => Theme::Oren,
+                Ok("glass") => Theme::Corgi,
                 Ok("pill") => Theme::Pill,
                 _ => Theme::Classic,
             },
@@ -2481,7 +2481,7 @@ impl SelfTest {
             Err(e) => crate::pinfo!("selftest: frame count not started ({e:?})"),
         }
         self.t0 = Instant::now();
-        if self.theme == Theme::Glass {
+        if self.theme == Theme::Corgi {
             let run = GlassRun::from_env();
             crate::pinfo!("selftest: Glass theme over the {} page, Windows in {} mode", if run.dark_page() { "dark" } else { "light" }, if run.app_light() { "light" } else { "dark" });
             self.glass = Some(run);
@@ -3141,7 +3141,7 @@ impl SelfTest {
         };
         if st.settings.theme != self.theme {
             st.settings.theme = self.theme;
-            st.accent = if self.theme == Theme::Oyen { crate::oyen::ORANGE } else { palette::BLUE };
+            st.accent = if self.theme == Theme::Oren { crate::oyen::ORANGE } else { palette::BLUE };
         }
         if let Some(run) = self.glass {
             // What's under the window: drawn again whenever the window grows.

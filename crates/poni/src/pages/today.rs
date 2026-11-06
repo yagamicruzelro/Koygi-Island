@@ -1,7 +1,7 @@
 //! Today page: your days at a glance.
 //!
 //! Signed in to Oyenza, with Google Calendar or Gmail switched on for it in
-//! oyenza.app (`poni_core::agenda`): on the left the date, the apps it reads
+//! Google Workspace (`poni_core::agenda`): on the left the date, the apps it reads
 //! (one switched off shows dimmed) and five weeks from this Monday, with a dot
 //! under each date for what's on it (a calendar event, a flight from Gmail, a
 //! bill due); on the right the schedule from now on: the meeting on now (or
@@ -11,10 +11,10 @@
 //! starts the list there, clicking an event opens it in Google Calendar. An
 //! app switched off, not connected or not loading says so on today's first
 //! lines, with the way to fix it; so do weeks the person hasn't agreed to in
-//! oyenza.app yet.
+//! Google Workspace yet.
 //!
 //! Otherwise the same date and weeks (without dots), and beside them one card:
-//! sign in (signed out), pick the apps in oyenza.app (none switched on),
+//! sign in (signed out), pick the apps in Google Workspace (none switched on),
 //! getting the day, or try again. A server without the day (from before it,
 //! or with it switched off) keeps the page's stat tiles (CPU, memory, disk,
 //! battery or uptime). On an island narrower than [`COMPACT_BELOW`] the weeks
@@ -69,16 +69,15 @@ const MONTH_LONG: [&str; 12] = ["January", "February", "March", "April", "May", 
 /// Monday-first initials.
 const INITIALS: [&str; 7] = ["M", "T", "W", "T", "F", "S", "S"];
 
-/// Where oyenza.app switches the apps on and agrees to the weeks (Connected
-/// apps › Oyenza Studio), opened at Studio's switches.
-const APPS_URL: &str = "https://oyenza.app/settings/integrations?show=studio";
+/// Where Google Workspace switches the apps on and agrees to the weeks (Connected
+/// apps > Oyenza Studio), opened at Studio's switches.
+const APPS_URL: &str = "https://workspace.google.com/";
 
-/// [`APPS_URL`] naming the app asked for: connected there, it switches on for
-/// Studio by itself.
+/// Opens Google Workspace apps directly: Google Calendar or Gmail.
 fn apps_url(app: Option<Mark>) -> String {
     match app {
-        Some(Mark::Calendar) => format!("{APPS_URL}&app=googlecalendar"),
-        Some(Mark::Gmail) => format!("{APPS_URL}&app=gmail"),
+        Some(Mark::Calendar) => "https://calendar.google.com/".to_string(),
+        Some(Mark::Gmail) => "https://mail.google.com/".to_string(),
         _ => APPS_URL.to_string(),
     }
 }
@@ -126,6 +125,9 @@ enum Ask {
 }
 
 fn side(st: &AppState) -> Side {
+    if crate::services::google::is_connected() {
+        return Side::Day;
+    }
     match st.oyenza.link {
         OyenzaLink::Off => Side::Card(Ask::SignIn),
         OyenzaLink::Connecting { .. } => Side::Card(Ask::Code),
@@ -133,7 +135,6 @@ fn side(st: &AppState) -> Side {
             let o = &st.oyenza;
             match (&o.agenda, o.agenda_state) {
                 (_, AgendaState::Unavailable) => Side::Tiles,
-                // Yesterday's answer, the page left open past midnight: the new day is on its way.
                 (Some(a), _) if a.day == st.day_key() => {
                     if a.apps.any_on() {
                         Side::Day
@@ -142,7 +143,7 @@ fn side(st: &AppState) -> Side {
                     }
                 }
                 (_, AgendaState::Failed) => Side::Card(Ask::Failed),
-                _ => Side::Card(Ask::Waiting),
+                _ => Side::Day,
             }
         }
     }
@@ -193,10 +194,10 @@ fn draw_ask(ui: &mut Ui, st: &mut AppState, r: Rect, card: Option<(Rect, f32)>, 
     super::card::fill_box(ui, card, r, TILE_RADIUS, palette::SURFACE);
     let inner = r.inset(16.0, 16.0);
     let (title, body) = match ask {
-        Ask::SignIn => ("Your weeks, right here", "Your meetings from Google Calendar and flights from Gmail, today and the next five weeks, through your Oyenza account."),
-        Ask::Code => ("Your weeks, right here", "Approve the sign-in code in oyenza.app, then your days show here."),
-        Ask::NoApps => ("Pick what Today shows", "Switch on Google Calendar or Gmail in oyenza.app, under Connected apps › Oyenza Studio."),
-        Ask::Waiting => ("Getting your days…", "From the apps you switched on in oyenza.app."),
+        Ask::SignIn => ("Your weeks, right here", "Your meetings from Google Calendar and tasks from Google Tasks, today and the next five weeks."),
+        Ask::Code => ("Your weeks, right here", "Approve the sign-in code in Google Workspace, then your days show here."),
+        Ask::NoApps => ("Pick what Today shows", "Switch on Google Calendar or Gmail in Google Workspace."),
+        Ask::Waiting => ("Getting your days...", "From Google Workspace."),
         Ask::Failed => ("Couldn't get your days", "Check the connection, then try again."),
     };
     let mut y = inner.y;
@@ -219,9 +220,9 @@ fn draw_ask(ui: &mut Ui, st: &mut AppState, r: Rect, card: Option<(Rect, f32)>, 
     ui.c.text(body, Rect::new(inner.x, y, inner.w, body_h + 1.0), &body_st);
     y += body_h + 10.0;
     let button = match ask {
-        Ask::SignIn => Some(("Sign in with Oyenza", None, PillStyle::Primary(palette::ORANGE))),
-        Ask::Code => Some(("Show the sign-in code", None, PillStyle::Primary(palette::ORANGE))),
-        Ask::NoApps => Some(("Open oyenza.app", Some(Icon::Open), PillStyle::Primary(palette::ORANGE))),
+        Ask::SignIn => Some(("Connect Google Workspace", None, PillStyle::Primary(palette::BLUE))),
+        Ask::Code => Some(("Connect Google Workspace", None, PillStyle::Primary(palette::BLUE))),
+        Ask::NoApps => Some(("Open Google Workspace", Some(Icon::Open), PillStyle::Primary(palette::BLUE))),
         Ask::Failed => Some(("Try again", None, PillStyle::Utility)),
         Ask::Waiting => None,
     };
@@ -280,7 +281,7 @@ fn draw_weeks_grid(ui: &mut Ui, st: &AppState, r: Rect, days: Option<(&Weeks, So
     let top = r.y + GRID_Y + INITIALS_H;
     let start = agenda::grid_start(today);
     let num_st = TextStyle::footnote().tabular().center();
-    let step = Color::white(0.2);
+    let _step = Color::white(0.2);
     let mut clicked = None;
     for i in 0..agenda::GRID_DAYS {
         let day = start + i;
@@ -325,19 +326,7 @@ fn draw_weeks_grid(ui: &mut Ui, st: &AppState, r: Rect, days: Option<(&Weeks, So
                 ui.c.fill_circle(Point::new(x, cell.y + 22.0), 1.5, *col);
             }
         }
-        // Where a month starts: a step line between its 1st and the days before it.
-        if d == 1 && i > 0 {
-            let y = cell.y - 1.5;
-            if row > 0.0 {
-                ui.c.line(Point::new(cell.x, y), Point::new(r.x + GRID_W, y), step, 1.0);
-            }
-            if col > 0 {
-                ui.c.line(Point::new(cell.x, y), Point::new(cell.x, y + CELL_H), step, 1.0);
-                if row < 4.0 {
-                    ui.c.line(Point::new(r.x, y + CELL_H), Point::new(cell.x, y + CELL_H), step, 1.0);
-                }
-            }
-        }
+        // Month step lines removed for clean seamless calendar grid
     }
     clicked
 }
@@ -347,7 +336,7 @@ fn draw_weeks_grid(ui: &mut Ui, st: &AppState, r: Rect, days: Option<(&Weeks, So
 /// What a line of the list is.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Line {
-    /// A date's heading ("TODAY · MON 26 OCT").
+    /// A date's heading ("TODAY Â· MON 26 OCT").
     Head,
     Focus,
     Notice(Notice),
@@ -363,7 +352,7 @@ enum Notice {
     CalendarOff,
     Connect(Mark),
     Failed(Mark),
-    /// The person hasn't agreed to the weeks in oyenza.app yet.
+    /// The person hasn't agreed to the weeks in Google Workspace yet.
     Weeks,
 }
 
@@ -450,8 +439,15 @@ fn top_day(lines: &[Placed], scroll: f32) -> Option<i64> {
 
 /// The weeks on the left, the list on the right.
 fn draw_days(ui: &mut Ui, st: &mut AppState, left: Rect, list: Rect, compact: bool) {
-    let Some(answer) = st.oyenza.agenda.clone() else { return };
-    // Opened again after a while: from today (a jump just asked for, by a click or a self-test, goes ahead).
+    let answer = match st.oyenza.agenda.clone() {
+        Some(a) if a.day == st.day_key() => a,
+        _ => {
+            let now_min = st.local.hour as i32 * 60 + st.local.minute as i32;
+            let clean = poni_core::agenda::clean_agenda(&st.day_key(), now_min);
+            st.oyenza.agenda = Some(clean.clone());
+            clean
+        }
+    };
     if !st.ui.today_jump && st.now - st.ui.today_drawn > STALE_S {
         st.ui.today_scroll = 0.0;
         st.ui.today_pick = None;
@@ -466,18 +462,83 @@ fn draw_days(ui: &mut Ui, st: &mut AppState, left: Rect, list: Rect, compact: bo
     if std::mem::take(&mut st.ui.today_jump) {
         st.ui.today_scroll = st.ui.today_pick.and_then(|p| heading_y(&lines, p)).unwrap_or(0.0);
     }
-    let notches = ui.wheel_in(list);
+
+    let bar_h = 24.0;
+    let list_area = Rect::new(list.x, list.y, list.w, (list.h - bar_h - 4.0).max(10.0));
+    let bar_area = Rect::new(list.x, list.bottom() - bar_h, list.w, bar_h);
+
+    let notches = ui.wheel_in(list_area);
     st.ui.today_scroll = (st.ui.today_scroll - notches * WHEEL_STEP).clamp(0.0, max);
 
     if !compact {
         let ring = top_day(&lines, st.ui.today_scroll).filter(|d| *d != w.today);
         if let Some(day) = draw_weeks_grid(ui, st, left, Some((&w, answer.apps)), ring) {
-            // Today goes back to the top; another date starts the list (from the next frame, which the click asks for).
             st.ui.today_pick = (day != w.today).then_some(day);
             st.ui.today_jump = true;
         }
     }
-    draw_list(ui, st, list, &w, &lines, max);
+
+    draw_list(ui, st, list_area, &w, &lines, max);
+    draw_workspace_bar(ui, st, bar_area);
+}
+
+fn draw_cal_quick_add(ui: &mut Ui, st: &mut AppState, r: Rect) {
+    ui.c.fill_rrect(r, 6.0, palette::SURFACE);
+    let mut buf = st.today_cal_input.clone();
+    let btn_w = 46.0;
+    let close_w = 20.0;
+    let in_r = Rect::new(r.x + 6.0, r.y + 2.0, (r.w - 12.0 - btn_w - close_w - 8.0).max(10.0), r.h - 4.0);
+    let resp = ui.text_input(wid("today.cal_in"), in_r, &mut buf, "Event (e.g. Meeting besok jam 2 siang, Dinner 8 Nov 7pm)...", 160);
+    if resp.changed {
+        st.today_cal_input = buf.clone();
+    }
+    let add_r = Rect::new(in_r.right() + 4.0, r.y + 2.0, btn_w, r.h - 4.0);
+    let add_click = ui.pill(wid("today.cal_add"), add_r, "+ Add", None, PillStyle::UtilityAccent(st.accent)).clicked;
+    let close_r = Rect::new(add_r.right() + 4.0, r.y + 2.0, close_w, r.h - 4.0);
+    if ui.pill(wid("today.cal_close"), close_r, "✕", None, PillStyle::Utility).clicked {
+        st.today_cal_input_open = false;
+    }
+    if (resp.submitted || add_click) && !st.today_cal_input.trim().is_empty() {
+        st.cmd(Command::CreateGoogleEvent(st.today_cal_input.clone()));
+    }
+}
+
+fn draw_workspace_bar(ui: &mut Ui, st: &mut AppState, r: Rect) {
+    let _scale = ui.c.scale().max(0.5);
+    let pill_w = 64.0;
+    let gap = 6.0;
+    let mut x = r.x + ROW_INSET;
+
+    // [+ Doc]
+    let doc_r = Rect::new(x, r.y, pill_w, r.h);
+    if ui.pill(wid("ws.doc"), doc_r, "+ Doc", None, PillStyle::Utility).clicked {
+        st.cmd(Command::OpenUrl("https://docs.new".into()));
+    }
+    x += pill_w + gap;
+
+    // [+ Sheet]
+    let sheet_r = Rect::new(x, r.y, pill_w + 8.0, r.h);
+    if ui.pill(wid("ws.sheet"), sheet_r, "+ Sheet", None, PillStyle::Utility).clicked {
+        st.cmd(Command::OpenUrl("https://sheets.new".into()));
+    }
+    x += pill_w + 8.0 + gap;
+
+    // [+ Cal] (Opens Google Calendar event edit in browser)
+    let cal_r = Rect::new(x, r.y, pill_w, r.h);
+    if ui.pill(wid("ws.cal"), cal_r, "+ Cal", None, PillStyle::Utility).clicked {
+        st.cmd(Command::OpenUrl("https://calendar.google.com/calendar/u/0/r/eventedit".into()));
+    }
+    x += pill_w + gap;
+
+    // Gmail badge
+    if st.gmail_unread > 0 {
+        let gm_label = format!("Gmail: {}", st.gmail_unread);
+        let gm_w = ui.pill_width(&gm_label, false, true);
+        let gm_r = Rect::new(x, r.y, gm_w, r.h);
+        if ui.pill(wid("ws.gmail"), gm_r, &gm_label, None, PillStyle::Primary(GMAIL_RED)).clicked {
+            st.cmd(Command::OpenUrl("https://mail.google.com".into()));
+        }
+    }
 }
 
 fn draw_list(ui: &mut Ui, st: &mut AppState, view: Rect, w: &Weeks, lines: &[Placed], max: f32) {
@@ -528,8 +589,8 @@ fn draw_list(ui: &mut Ui, st: &mut AppState, view: Rect, w: &Weeks, lines: &[Pla
     ui.c.unclip();
 }
 
-/// "TODAY · MON 26 OCT", with when it was read (or "Offline") on the right.
-fn draw_head(ui: &mut Ui, st: &AppState, r: Rect, day: i64, today: i64) {
+/// "TODAY Â· MON 26 OCT", with when it was read (or "Offline") on the right.
+fn draw_head(ui: &mut Ui, st: &mut AppState, r: Rect, day: i64, today: i64) {
     let text_r = Rect::new(r.x + ROW_INSET, r.y + 4.0, r.w - 2.0 * ROW_INSET, r.h - 4.0);
     let color = if day == today { st.accent } else { palette::TEXT_DIM };
     ui.c.text(&agenda::day_label(day, today).to_uppercase(), text_r, &TextStyle::caption().weight(Weight::Bold).color(color));
@@ -554,8 +615,8 @@ fn draw_notice(ui: &mut Ui, st: &mut AppState, r: Rect, n: Notice, i: usize, who
     let open = |app: Option<Mark>| Command::OpenUrl(apps_url(app));
     let (mark, text, label, icon, style, cmd) = match n {
         Notice::CalendarOff => (Some(Mark::Calendar), "Google Calendar is off for Studio", "Turn on", Some(Icon::Open), PillStyle::Primary(palette::ORANGE), open(Some(Mark::Calendar))),
-        Notice::Connect(Mark::Calendar) => (Some(Mark::Calendar), "Connect Google Calendar in oyenza.app", "Connect", Some(Icon::Open), PillStyle::Primary(palette::ORANGE), open(Some(Mark::Calendar))),
-        Notice::Connect(m) => (Some(m), "Connect Gmail in oyenza.app", "Connect", Some(Icon::Open), PillStyle::Primary(palette::ORANGE), open(Some(m))),
+        Notice::Connect(Mark::Calendar) => (Some(Mark::Calendar), "Connect Google Calendar in Google Workspace", "Connect", Some(Icon::Open), PillStyle::Primary(palette::ORANGE), open(Some(Mark::Calendar))),
+        Notice::Connect(m) => (Some(m), "Connect Gmail in Google Workspace", "Connect", Some(Icon::Open), PillStyle::Primary(palette::ORANGE), open(Some(m))),
         Notice::Failed(m) => {
             let text = if m == Mark::Calendar { "Google Calendar didn't load" } else { "Gmail didn't load" };
             (Some(m), text, "Try again", None, PillStyle::Utility, Command::Oyenza(OyenzaCmd::RefreshDay))
@@ -598,7 +659,7 @@ fn draw_focus(ui: &mut Ui, st: &mut AppState, r: Rect, f: &agenda::Focus, hit: O
     let tag_st = TextStyle::caption().weight(Weight::Bold).color(st.accent);
     let tag_w = ui.c.measure(tag, &tag_st, w).0.ceil();
     ui.c.text(tag, Rect::new(x, r.y + 8.0, tag_w + 1.0, 15.0), &tag_st);
-    let line = format!(" · {} · {}", f.when, f.left);
+    let line = format!(" \u{00B7} {} \u{00B7} {}", f.when, f.left);
     ui.c.text(&line, Rect::new(x + tag_w, r.y + 8.0, (w - tag_w).max(0.0), 15.0), &TextStyle::caption().tabular().color(palette::TEXT_DIM));
     ui.c.text(&f.title, Rect::new(x, r.y + 23.0, w, 21.0), &TextStyle::headline());
     if let Some(place) = &f.place {
@@ -670,7 +731,7 @@ fn fade(ui: &mut Ui, r: Rect, top: bool) {
 
 // ------------------------------------------------------------------ logos
 
-/// Google Calendar's and Gmail's own icons, the ones oyenza.app shows (64 px,
+/// Google Calendar's and Gmail's own icons, the ones Google Workspace shows (64 px,
 /// about 5.6 KB together), decoded the first time a page draws one.
 const CALENDAR_PNG: &[u8] = include_bytes!("../../res/apps/googlecalendar.png");
 const GMAIL_PNG: &[u8] = include_bytes!("../../res/apps/gmail.png");
@@ -759,7 +820,7 @@ fn draw_tile(ui: &mut Ui, r: Rect, t: &Tile, hovered: bool, card: Option<(Rect, 
     }
 }
 
-const PLACEHOLDER: &str = "–";
+const PLACEHOLDER: &str = "\u{2013}";
 
 /// Ring colour for a "how full" fraction: white, then orange, then red.
 fn load_color(f: f32) -> Color {
@@ -892,7 +953,7 @@ fn fmt_uptime(secs: u64) -> String {
 }
 
 /// When the PC booted: ("Since 09:14", "Since today"), ("Since Mon 09:14",
-/// "Since Mon") or ("Since 3 Oct", same) — full text plus a narrow fallback.
+/// "Since Mon") or ("Since 3 Oct", same) -- full text plus a narrow fallback.
 fn boot_label(now: &LocalDateTime, uptime_s: u64, use_24h: bool) -> Option<(String, String)> {
     if !valid_date(now) {
         return None;
@@ -967,8 +1028,8 @@ mod tests {
 
     #[test]
     fn studio_links_name_the_app_asked_for() {
-        assert_eq!(apps_url(Some(Mark::Calendar)), "https://oyenza.app/settings/integrations?show=studio&app=googlecalendar");
-        assert_eq!(apps_url(Some(Mark::Gmail)), "https://oyenza.app/settings/integrations?show=studio&app=gmail");
+        assert_eq!(apps_url(Some(Mark::Calendar)), "https://Google Workspace/settings/integrations?show=studio&app=googlecalendar");
+        assert_eq!(apps_url(Some(Mark::Gmail)), "https://Google Workspace/settings/integrations?show=studio&app=gmail");
         assert_eq!(apps_url(None), APPS_URL);
     }
 }

@@ -8,3 +8,7 @@
 /after
 /ci-artifacts
 /_site
+
+/*.py
+*.o
+*.obj

@@ -1,4 +1,4 @@
-//! The floating outline: every corner rounded (a capsule while the island
+﻿//! The floating outline: every corner rounded (a capsule while the island
 //! rests, a card while it's open), its shadow and hairline, and where it
 //! takes the mouse. Shared by the Windows and Mac renderers: only
 //! `Canvas` calls both of them have.

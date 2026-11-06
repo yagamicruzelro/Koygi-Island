@@ -1,4 +1,4 @@
-//! The pop-ups (`Mode::Hud`): volume, charging, low battery and Bluetooth.
+﻿//! The pop-ups (`Mode::Hud`): volume, charging, low battery and Bluetooth.
 //!
 //! Each is a capsule of the resting pill's height: a glyph in the left end,
 //! a label (or the volume's level bar) after it and the value or the battery

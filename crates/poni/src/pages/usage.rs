@@ -896,7 +896,7 @@ fn names(ids: &[ProviderId], last_word: &str) -> String {
 /// Every service, in order: shown or hidden, its key (typed into a masked
 /// field that opens under its row), and Oyenza Inference's connection.
 fn list(ui: &mut Ui, st: &mut AppState, view: Rect, dt: f32, moving: &mut bool) {
-    let intro = "Each sign-in is read on this computer and goes only to its own service. Oyenza never sees your other plans.";
+    let intro = "Each sign-in is read on this computer and goes only to its own service. Your keys and logs remain private on this computer.";
     let intro_st = TextStyle::caption().color(palette::TEXT_DIM).wrap().top();
     let intro_h = ui.c.measure(intro, &intro_st, view.w).1.ceil();
     let editing = st.ui.usage.editing.filter(|id| usage::provider(*id).takes_key().is_some());

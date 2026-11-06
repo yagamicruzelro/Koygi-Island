@@ -28,15 +28,19 @@ pub enum Theme {
     /// The plain black island.
     #[default]
     Classic,
-    /// Oyen, the Oyenza cat, lives in the island: he peeks over its edge
-    /// while it rests, bobs to the music and takes Oyen's orange as accent.
-    Oyen,
-    /// Liquid glass: the island bends, frosts and tints what's under it.
-    Glass,
-    /// Pill: the island floats a little below the top edge as a black
-    /// capsule, with its own layouts: the time and battery at rest, the song
-    /// while music plays, a rounded card when it opens.
+    /// Pill: the island floats a little below the top edge as a black capsule.
     Pill,
+    /// Oren: playful orange cat mascot living in the notch island.
+    #[serde(alias = "oyen")]
+    Oren,
+    /// Corgi: playful corgi puppy mascot living in the notch island.
+    #[serde(alias = "glass")]
+    Corgi,
+    /// Oren Pill: floating black capsule with Oren cat animations.
+    #[serde(alias = "oyen_pill")]
+    OrenPill,
+    /// Corgi Pill: floating black capsule with Corgi puppy animations.
+    CorgiPill,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,6 +110,9 @@ pub struct Settings {
     /// Oyenza (once signed in): show sums and senders on the island straight
     /// away. Off: they wait for a click on Show, so a shared screen shows none.
     pub oyenza_show_amounts: bool,
+    /// Personal Google account or calendar link connected directly in-app.
+    #[serde(default)]
+    pub google_calendar_link: String,
     /// Keep the System page's charts going while it's closed (a light reading
     /// of the kernel counters once a second), so they're full when it opens.
     /// Only while the System add-on is on ([`Settings::system_history_on`]).
@@ -246,6 +253,7 @@ impl Default for Settings {
             hidden_tabs: Vec::new(),
             pomodoro: PomodoroConfig::default(),
             oyenza_show_amounts: false,
+            google_calendar_link: String::new(),
             system_history: true,
             addons: BTreeMap::new(),
             prayer: PrayerSettings::default(),
@@ -265,12 +273,13 @@ impl Settings {
     /// picking Hide afterwards turns the readout off. `before` is the state
     /// the change started from.
     pub fn pair_game_stats(&mut self, before: &Settings) {
-        if !(self.game_stats && self.hide_in_fullscreen) {
-            return;
-        }
-        if before.game_stats && !before.hide_in_fullscreen {
-            self.game_stats = false;
-        } else {
+        if self.game_stats != before.game_stats {
+            self.hide_in_fullscreen = !self.game_stats;
+        } else if self.hide_in_fullscreen != before.hide_in_fullscreen {
+            if self.hide_in_fullscreen {
+                self.game_stats = false;
+            }
+        } else if self.game_stats && self.hide_in_fullscreen {
             self.hide_in_fullscreen = false;
         }
     }
@@ -335,6 +344,7 @@ impl Settings {
         if self.settings_version < 5 && self.addons.get("notifications") == Some(&false) && !self.hidden_tabs.iter().any(|k| k == "notifications") {
             self.hidden_tabs.push("notifications".into());
         }
+        self.hidden_tabs.retain(|t| t != "tasks");
         self.settings_version = self.settings_version.max(SETTINGS_VERSION);
         // Step aside is no longer offered: the island stays over maximized windows.
         self.step_aside = false;
@@ -418,9 +428,9 @@ mod tests {
         let s: Settings = serde_json::from_str(r#"{"idle_style":"eyes"}"#).unwrap();
         assert_eq!(s.theme, Theme::Classic);
         let s: Settings = serde_json::from_str(r#"{"theme":"oyen"}"#).unwrap();
-        assert_eq!(s.theme, Theme::Oyen);
+        assert_eq!(s.theme, Theme::Oren);
         let s: Settings = serde_json::from_str(r#"{"theme":"glass"}"#).unwrap();
-        assert_eq!(s.theme, Theme::Glass);
+        assert_eq!(s.theme, Theme::Corgi);
         let s: Settings = serde_json::from_str(r#"{"theme":"pill"}"#).unwrap();
         assert_eq!(s.theme, Theme::Pill);
     }
@@ -449,7 +459,7 @@ mod tests {
     fn files_with_clipboard_history_still_load_and_drop_it() {
         // Files from 0.2.8 and before hold the key: it's ignored, and gone after a save.
         let s = serde_json::from_str::<Settings>(r#"{"settings_version":4,"clipboard_history":true,"theme":"oyen"}"#).unwrap().sanitized();
-        assert_eq!(s.theme, Theme::Oyen);
+        assert_eq!(s.theme, Theme::Oren);
         assert!(!serde_json::to_string(&s).unwrap().contains("clipboard"));
         // A Clipboard start page from before 0.2.7 opens Music.
         let s = serde_json::from_str::<Settings>(r#"{"settings_version":3,"start_page":"clipboard"}"#).unwrap().sanitized();
@@ -500,6 +510,11 @@ mod tests {
         // Picking Hide afterwards turns the readout off.
         let before = s.clone();
         let mut s = Settings { hide_in_fullscreen: true, ..before.clone() };
+        s.pair_game_stats(&before);
+        assert!(!s.game_stats && s.hide_in_fullscreen);
+        // Turning game_stats off sets hide_in_fullscreen back to true (Hide).
+        let before = Settings { game_stats: true, hide_in_fullscreen: false, ..Settings::default() };
+        let mut s = Settings { game_stats: false, ..before.clone() };
         s.pair_game_stats(&before);
         assert!(!s.game_stats && s.hide_in_fullscreen);
         // Stay on top alone, and the readout off, change nothing.

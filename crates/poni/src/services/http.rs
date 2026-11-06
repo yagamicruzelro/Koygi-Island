@@ -40,6 +40,7 @@ pub enum Method {
     Get,
     Post,
     Delete,
+    Patch,
 }
 
 /// A complete response.
@@ -203,11 +204,15 @@ impl Client {
             Method::Get => HttpMethod::Get(),
             Method::Post => HttpMethod::Post(),
             Method::Delete => HttpMethod::Delete(),
+            Method::Patch => HttpMethod::Create(&windows::core::HSTRING::from("PATCH")),
         }
         .map_err(|e| other("could not create a request", &e))?;
         let request = HttpRequestMessage::Create(&method, &uri).map_err(|e| other("could not create a request", &e))?;
         let request_headers = request.Headers().map_err(|e| other("could not set request headers", &e))?;
         for (name, value) in headers {
+            if name.eq_ignore_ascii_case("content-type") {
+                continue;
+            }
             if !request_headers.TryAppendWithoutValidation(&HSTRING::from(*name), &HSTRING::from(*value)).unwrap_or(false) {
                 return Err(FetchError::Other(format!("could not set the {name} header")));
             }
@@ -242,6 +247,9 @@ impl Client {
             .map_err(|e| other("could not create a request", &e))?;
         let request_headers = request.Headers().map_err(|e| other("could not set request headers", &e))?;
         for (name, value) in headers {
+            if name.eq_ignore_ascii_case("content-type") {
+                continue;
+            }
             if !request_headers.TryAppendWithoutValidation(&HSTRING::from(*name), &HSTRING::from(*value)).unwrap_or(false) {
                 return Err(FetchError::Other(format!("could not set the {name} header")));
             }

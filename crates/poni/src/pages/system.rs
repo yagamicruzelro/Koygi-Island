@@ -870,15 +870,30 @@ fn draw_games(ui: &mut Ui, st: &mut AppState, cols: &Cols) {
     // The switch, and the frames' access with its one button.
     let (head, rest) = cols.dash.split_top(SEP_H);
     separator(ui, head, "OVER GAMES");
-    let (row, rest) = rest.split_top(28.0);
+    let (row, rest) = rest.split_top(26.0);
     let on = st.settings.game_stats;
     if crate::pages::settings::switch_row(ui, wid("system.games.switch"), row, "Show over games", Some(on), accent) {
+        let before = st.settings.clone();
         st.settings.game_stats = !on;
+        st.settings.pair_game_stats(&before);
+        st.cmd(Command::SaveSettings);
+    }
+    // Fullscreen behavior: Hide vs Stay on top
+    const FULLSCREEN: [(bool, &str); 2] = [(true, "Hide"), (false, "Stay on top")];
+    let (row, rest) = rest.split_top(26.0);
+    let fs_names = FULLSCREEN.map(|f| f.1);
+    let fs_x = row.right() - crate::pages::settings::picker_width(ui, &fs_names);
+    ui.c.text("In full screen", Rect::new(row.x, row.y, (fs_x - 10.0 - row.x).max(0.0), row.h), &TextStyle::body());
+    let fs_sel = FULLSCREEN.iter().position(|f| f.0 == st.settings.hide_in_fullscreen).unwrap_or(0);
+    if let Some(i) = crate::pages::settings::picker(ui, "system.games.fullscreen", fs_x, row.center().y - 12.0, 24.0, &fs_names, fs_sel) {
+        let before = st.settings.clone();
+        st.settings.hide_in_fullscreen = FULLSCREEN[i].0;
+        st.settings.pair_game_stats(&before);
         st.cmd(Command::SaveSettings);
     }
     // The readout stays over the game, or peeks for a few seconds at a time
     // (between them nothing covers the game: no added delay).
-    let (row, rest) = rest.split_top(28.0);
+    let (row, rest) = rest.split_top(26.0);
     let names = GAME_READOUT.map(|r| r.1);
     let x = row.right() - crate::pages::settings::picker_width(ui, &names);
     ui.c.text("Readout", Rect::new(row.x, row.y, (x - 10.0 - row.x).max(0.0), row.h), &TextStyle::body());
@@ -887,7 +902,7 @@ fn draw_games(ui: &mut Ui, st: &mut AppState, cols: &Cols) {
         st.settings.game_peek = GAME_READOUT[i].0;
         st.cmd(Command::SaveSettings);
     }
-    let (about, rest) = rest.split_top(40.0);
+    let (about, rest) = rest.split_top(34.0);
     let about_text = if st.settings.game_peek {
         "A few seconds as a game starts, when FPS drops and on Alt+Shift+F. No added delay in between."
     } else {

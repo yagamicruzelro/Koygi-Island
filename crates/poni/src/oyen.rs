@@ -44,7 +44,7 @@ const REST_CYCLE: f64 = 6.5;
 const BLINK_WINDOW: f64 = 0.4;
 
 pub fn on(theme: Theme) -> bool {
-    theme == Theme::Oyen
+    theme == Theme::Oren || theme == Theme::OrenPill
 }
 
 /// Is a rest move (blink or ear flick) under way at `now`?
@@ -80,7 +80,9 @@ fn rest_eyes(now: f64, night: bool, look: Option<f32>, eyes: f64) -> (Frame, boo
     }
     if let Some(x) = look {
         let input = Input { pencil: x.clamp(-1.0, 1.0) as f64, ..Input::default() };
-        return (oyen::frame(Mood::Nulis, 0.0, input, eyes), false);
+        let blink_phase = (now * 0.7).rem_euclid(3.0);
+        let t = if blink_phase < 0.25 { 1.7 + blink_phase } else { 0.0 };
+        return (oyen::frame(Mood::Nulis, t, input, eyes), true);
     }
     let phase = now.rem_euclid(REST_CYCLE);
     if !rest_moving(now) {

@@ -1,3 +1,4 @@
+#![allow(unused)]
 //! Settings page, behind the gear on the right of the header: the everyday
 //! settings. Its last row, Advanced settings, opens the Settings window
 //! (`settings_window`) with every setting, and the island closes as the
@@ -38,17 +39,18 @@ use poni_core::update::Release;
 /// and under a line Advanced settings. Shorter than the System page (256),
 /// so the window keeps its size: a new version's Update goes in the
 /// version's row, not a row of its own.
-const TABS_Y: f32 = SWITCHES_Y + ROWS as f32 * ROW_H;
-const ADVANCED_Y: f32 = TABS_Y + ROW_H;
-const HEIGHT: f32 = ADVANCED_Y + ROW_H;
+const STACK_Y: [f32; 2] = [8.0, 38.0];
+const SWITCHES_Y: f32 = 72.0;
+const TABS_Y: f32 = SWITCHES_Y + ROWS as f32 * ROW_H + 6.0;
+const ADVANCED_Y: f32 = TABS_Y + ROW_H + 6.0;
+const HEIGHT: f32 = ADVANCED_Y + ROW_H + 8.0;
 const ACCOUNT_H: f32 = 44.0;
 /// The Oyenza app's icon, and the text column right of it.
 const ICON: f32 = 36.0;
 const TEXT_X: f32 = 48.0;
 const RULE_Y: f32 = 54.0;
-const LABELS_Y: f32 = 62.0;
-const PICKERS_Y: f32 = 80.0;
-const SWITCHES_Y: f32 = 114.0;
+const LABELS_Y: f32 = 8.0;
+const PICKERS_Y: f32 = 26.0;
 const ROW_H: f32 = 28.0;
 const COL_GAP: f32 = 24.0;
 /// A row's hover wash reaches this far past its text and switch.
@@ -60,10 +62,6 @@ const ROW_BLEED: f32 = 8.0;
 const SEG_INSET: f32 = 2.0;
 const SEG_PAD: f32 = 11.0;
 const SEG_PAD_MIN: f32 = 7.5;
-/// Where they still don't fit (a narrow island), each takes a row, its
-/// label on the left, in the room the labels-above layout uses, so the page
-/// keeps its height.
-const STACK_Y: [f32; 2] = [58.0, 86.0];
 const STACK_GAP: f32 = 16.0;
 /// The full-screen choice's picker, inside its row.
 const ROW_PICKER_H: f32 = 24.0;
@@ -86,7 +84,14 @@ const CHIP_ICON_GAP: f32 = 5.0;
 const CHIP_GAP: f32 = 6.0;
 
 // Glass: on Windows from a copy of the screen, on a Mac macOS's own glass.
-const THEMES: [(Theme, &str); 4] = [(Theme::Classic, "Classic"), (Theme::Oyen, "Oyen"), (Theme::Glass, "Glass"), (Theme::Pill, "Pill")];
+const THEMES: [(Theme, &str); 6] = [
+    (Theme::Classic, "Classic"),
+    (Theme::Oren, "Oren"),
+    (Theme::Corgi, "Corgi"),
+    (Theme::Pill, "Pill"),
+    (Theme::OrenPill, "Oren Pill"),
+    (Theme::CorgiPill, "Corgi Pill"),
+];
 
 /// An idle look's name in the picker (`eyes` is Oyen in his theme).
 fn idle_name(s: IdleStyle, eyes: &'static str) -> &'static str {
@@ -150,13 +155,6 @@ pub fn next_wake(st: &AppState) -> Option<f64> {
 }
 
 pub fn draw(ui: &mut Ui, st: &mut AppState, area: Rect) {
-    if let Some(rel) = st.update.offer.clone().filter(|_| st.update.sheet) {
-        draw_sheet(ui, st, area, &rel);
-        return;
-    }
-    draw_account(ui, st, Rect::new(area.x, area.y, area.w, ACCOUNT_H));
-    let px = 1.0 / ui.c.scale().max(0.5);
-    ui.c.fill_rect(Rect::new(area.x, area.y + RULE_Y, area.w, px), Color::white(0.10));
 
     let col_w = ((area.w - COL_GAP) / 2.0).max(0.0);
     let cols = [area.x, area.x + col_w + COL_GAP];
@@ -167,7 +165,13 @@ pub fn draw(ui: &mut Ui, st: &mut AppState, area: Rect) {
     let theme_sel = THEMES.iter().position(|t| t.0 == st.settings.theme).unwrap_or(0);
     let looks = status::looks(st.settings.theme);
     // In the Oyen theme the eyes are Oyen's own (as in the tray menu).
-    let eyes = if st.settings.theme == Theme::Oyen { "Oyen" } else { "Eyes" };
+    let eyes = if crate::oyen::on(st.settings.theme) {
+        "Oren"
+    } else if crate::corgi::on(st.settings.theme) {
+        "Corgi"
+    } else {
+        "Eyes"
+    };
     let look_names: Vec<&str> = looks.iter().map(|s| idle_name(*s, eyes)).collect();
     let look_sel = looks.iter().position(|s| *s == status::shown(st.settings.theme, st.settings.idle_style)).unwrap_or(0);
     // Side by side under their labels when both fit their columns, each
@@ -226,27 +230,7 @@ pub fn draw(ui: &mut Ui, st: &mut AppState, area: Rect) {
                     }
                 }
                 Row::Version => {
-                    // Check now at its right end; while a later version is
-                    // out, Update to it there instead (the Update sheet).
-                    let update = st.update.offer.as_ref().map(|rel| update_label(ui, row, &rel.version));
-                    let slot = match &update {
-                        Some(text) => {
-                            let w = ui.pill_width(text, false, true);
-                            Some(Rect::new(row.right() - w, row.center().y - ROW_PICKER_H / 2.0, w, ROW_PICKER_H))
-                        }
-                        None => check_slot(ui, st, row),
-                    };
-                    let right = slot.map_or(row.right(), |b| b.x - 10.0);
-                    text_with_dim(ui, "Version", VERSION, Rect::new(row.x, row.y, (right - row.x).max(0.0), row.h), TextStyle::body());
-                    match (update, slot) {
-                        (Some(text), Some(b)) => {
-                            if ui.pill(wid("settings.update"), b, &text, None, PillStyle::Primary(accent)).clicked {
-                                st.update.sheet = true;
-                            }
-                        }
-                        (None, Some(b)) => draw_check(ui, st, b),
-                        _ => {}
-                    }
+                    text_with_dim(ui, "Version", "Beta", row, TextStyle::body());
                 }
                 Row::Fullscreen => {
                     let sel = FULLSCREEN.iter().position(|f| f.0 == st.settings.hide_in_fullscreen).unwrap_or(0);
@@ -454,9 +438,9 @@ fn draw_sheet(ui: &mut Ui, st: &mut AppState, area: Rect, rel: &Release) {
     text_with_dim(ui, title, &rel.version, Rect::new(x, cy - 19.0, w, 20.0), TextStyle::headline());
     let size = rel.download(cfg!(target_os = "macos")).map(|d| fmt_bytes(d.size)).unwrap_or_default();
     let line = if ready {
-        "A new version of Oyenza Studio is ready to be installed.".to_string()
+        "A new version of Koygi Island is ready to be installed.".to_string()
     } else {
-        format!("A new version of Oyenza Studio is ready to download ({size}).")
+        format!("A new version of Koygi Island is ready to download ({size}).")
     };
     ui.c.text(&line, Rect::new(x, cy + 1.0, w, 17.0), &TextStyle::footnote().color(palette::TEXT_DIM));
 
@@ -476,7 +460,7 @@ fn draw_sheet(ui: &mut Ui, st: &mut AppState, area: Rect, rel: &Release) {
         };
         vec![(Get::InstallNow, Icon::Download, "Install now".to_string(), "Closes, updates and opens again"), next]
     } else if cfg!(target_os = "macos") {
-        vec![(Get::Download, Icon::Download, format!("Download {}", rel.version), "Downloads the DMG: open it and drag Oyenza Studio to Applications.")]
+        vec![(Get::Download, Icon::Download, format!("Download {}", rel.version), "Downloads the DMG: open it and drag Koygi Island to Applications.")]
     } else {
         vec![(Get::Download, Icon::Download, format!("Download {}", rel.version), "Opens its release page: run the Setup there, your settings stay.")]
     };
@@ -492,7 +476,7 @@ fn draw_sheet(ui: &mut Ui, st: &mut AppState, area: Rect, rel: &Release) {
         }
     }
 
-    let notes = format!("See what's new in Oyenza Studio {}", rel.version);
+    let notes = format!("See what's new in Koygi Island {}", rel.version);
     let nw = ui.pill_width(&notes, true, true).min(area.w);
     let nr = Rect::new(area.x, area.y + NOTES_Y, nw, PILL_SMALL);
     if ui.pill(wid("update.notes"), nr, &notes, Some(Icon::Open), PillStyle::Utility).clicked {
@@ -563,49 +547,14 @@ fn flip(st: &mut AppState, sw: Switch, on: Option<bool>) {
 
 pub(crate) fn draw_account(ui: &mut Ui, st: &mut AppState, r: Rect) {
     let cy = r.center().y;
-    crate::oyen::app_icon(ui.c, Point::new(r.x + ICON / 2.0, cy), ICON);
-    match st.oyenza.link.clone() {
-        OyenzaLink::Off => {
-            let label = "Sign in with Oyenza";
-            let w = ui.pill_width(label, false, false);
-            let b = Rect::new(r.right() - w, cy - PILL_REGULAR / 2.0, w, PILL_REGULAR);
-            if ui.pill(wid("settings.sign-in"), b, label, None, PillStyle::Primary(OYENZA)).clicked {
-                st.cmd(Command::Oyenza(OyenzaCmd::SignIn));
-            }
-            account_text(ui, r, b.x, "Oyenza", "Sign in to see money in and bills due here.");
-        }
-        OyenzaLink::Connecting { code, until, .. } => {
-            let cancel_w = ui.pill_width("Cancel", false, true);
-            let cancel = Rect::new(r.right() - cancel_w, cy - PILL_SMALL / 2.0, cancel_w, PILL_SMALL);
-            if ui.pill(wid("settings.cancel"), cancel, "Cancel", None, PillStyle::Utility).clicked {
-                st.cmd(Command::Oyenza(OyenzaCmd::Cancel));
-            }
-            let show_w = ui.pill_width("Show code", false, true);
-            let show = Rect::new(cancel.x - PILL_GAP - show_w, cancel.y, show_w, PILL_SMALL);
-            if ui.pill(wid("settings.show-code"), show, "Show code", None, PillStyle::Primary(OYENZA)).clicked {
-                st.cmd(Command::SetPage(PageKind::Oyenza));
-            }
-            let line = format!("Code {code} · works for {}", oyenza::code_time_left(until - st.now));
-            account_text(ui, r, show.x, "Signing in to Oyenza", &line);
-        }
-        OyenzaLink::Connected { account } => {
-            let dis_w = ui.pill_width("Disconnect", false, true);
-            let dis = Rect::new(r.right() - dis_w, cy - PILL_SMALL / 2.0, dis_w, PILL_SMALL);
-            if ui.pill(wid("settings.disconnect"), dis, "Disconnect", None, PillStyle::Utility).clicked {
-                st.cmd(Command::Oyenza(OyenzaCmd::Disconnect));
-            }
-            // Sums and senders straight away on the island (off: they wait for Show).
-            let label = "Show amounts";
-            let lw = ui.c.measure(label, &TextStyle::body(), 300.0).0.ceil();
-            let row = Rect::new(dis.x - 2.0 * ROW_BLEED - lw - 10.0 - SWITCH_W, cy - ROW_H / 2.0, lw + 10.0 + SWITCH_W, ROW_H);
-            let on = st.settings.oyenza_show_amounts;
-            if switch_row(ui, wid("settings.amounts"), row, label, Some(on), st.accent) {
-                st.settings.oyenza_show_amounts = !on;
-                st.cmd(Command::SaveSettings);
-            }
-            account_text(ui, r, row.x - ROW_BLEED, "Oyenza", &format!("Signed in as {account}"));
-        }
+    crate::corgi::app_icon(ui.c, Point::new(r.x + ICON / 2.0, cy), ICON);
+    let label = "Advanced";
+    let w = ui.pill_width(label, false, false);
+    let b = Rect::new(r.right() - w, cy - PILL_REGULAR / 2.0, w, PILL_REGULAR);
+    if ui.pill(wid("settings.open-advanced"), b, label, None, PillStyle::Primary(st.accent)).clicked {
+        st.cmd(Command::OpenSettings);
     }
+    account_text(ui, r, b.x, "Dynamic Island", "Personal Edition \u{b7} Version Beta");
 }
 
 /// The account's name over one dim line, between Oyen and `right` (where

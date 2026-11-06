@@ -372,6 +372,8 @@ pub struct App {
     expanded: bool,
     drag_hover: bool,
     text_focus: bool,
+    key_left_down: bool,
+    key_right_down: bool,
     prev_foreground: HWND,
     monitor: MonitorInfo,
     /// The Settings window, while it is open.
@@ -651,6 +653,15 @@ impl App {
         st.recorder = selftest_dir.is_none() && services::recorder::installed();
         // The Downloader: not in the Microsoft Store build.
         st.downloader_offered = !crate::autostart::packaged();
+        if !st.settings.google_calendar_link.is_empty() {
+            let account = st.settings.google_calendar_link.clone();
+            let now_min = st.local.hour as i32 * 60 + st.local.minute as i32;
+            let ans = poni_core::agenda::clean_agenda(&st.day_key(), now_min);
+            st.oyenza.agenda = Some(ans);
+            st.oyenza.agenda_state = crate::state::AgendaState::Ready;
+            st.oyenza.agenda_unix = Some(st.unix);
+            st.oyenza.link = crate::state::OyenzaLink::Connected { account };
+        }
         let selftest = selftest_dir.map(selftest::SelfTest::new);
         let saved_settings = st.settings.clone();
         Ok(Self {
@@ -756,6 +767,8 @@ impl App {
             grab: None,
             updater: None,
             notify: None,
+            key_left_down: false,
+            key_right_down: false,
         })
     }
 
@@ -766,6 +779,9 @@ impl App {
         services::power::register(self.helper);
         if !fake {
             self.services = Some(Services::start(&self.sink, self.hwnd, self.helper, &self.st.settings, self.oyenza_activity()));
+            if crate::services::google::is_connected() {
+                self.st.oyenza.link = crate::state::OyenzaLink::Connected { account: "Google Workspace".into() };
+            }
             self.sync_top_watch();
             self.st.paired = self.services.as_ref().map(|s| paired_phones(s.pairs())).unwrap_or_default();
             self.sync_pair_offer();
@@ -880,7 +896,7 @@ impl App {
         }
     }
 
-    /// Lay the window out for an island body up to `body_w`×`body_h` DIPs.
+    /// Lay the window out for an island body up to `body_w`Ã—`body_h` DIPs.
     fn layout_surface_for(&mut self, body_w: f32, body_h: f32) {
         let s = self.gfx.scale();
         let mon_w = self.monitor.rect.right - self.monitor.rect.left;
@@ -889,7 +905,7 @@ impl App {
         self.place_surface(w, h);
     }
 
-    /// Put the `w`×`h` px window at the top of the monitor: centred, or as
+    /// Put the `w`Ã—`h` px window at the top of the monitor: centred, or as
     /// near the spot the island was dragged to as the monitor allows. Past
     /// that the island goes the rest of the way inside the window
     /// (`place_island`).
@@ -1364,6 +1380,23 @@ impl App {
                     self.request_frame();
                     return Some(LRESULT(0));
                 }
+                if self.expanded && !self.text_focus {
+                    match VIRTUAL_KEY(wp.0 as u16) {
+                        VK_LEFT => {
+                            let prev = pages::step_tab(self.st.page, &self.st, false);
+                            self.st.cmd(Command::SetPage(prev));
+                            self.request_frame();
+                            return Some(LRESULT(0));
+                        }
+                        VK_RIGHT => {
+                            let next = pages::step_tab(self.st.page, &self.st, true);
+                            self.st.cmd(Command::SetPage(next));
+                            self.request_frame();
+                            return Some(LRESULT(0));
+                        }
+                        _ => {}
+                    }
+                }
                 None
             }
             WM_ACTIVATE => {
@@ -1381,8 +1414,8 @@ impl App {
                 if msg == WM_SETTINGCHANGE {
                     self.glass.app_light = services::apps_use_light_theme();
                 }
-                if msg == WM_SETTINGCHANGE && self.st.settings.theme == Theme::Glass {
-                    self.st.accent = theme_accent(Theme::Glass);
+                if msg == WM_SETTINGCHANGE && false {
+                    self.st.accent = theme_accent(Theme::Corgi);
                 } else if msg == WM_SETTINGCHANGE && !oyen::on(self.st.settings.theme) {
                     if let Some(a) = services::system_accent() {
                         self.st.accent = a;
@@ -1503,7 +1536,7 @@ impl App {
     // ------------------------------------------------------------ the Settings window
 
     /// Advanced settings (the Settings page's last row, the menu's
-    /// Advanced settings…): the island closes and the window opens, so the
+    /// Advanced settingsâ€¦): the island closes and the window opens, so the
     /// open island never sits over it.
     fn show_settings(&mut self, deferred: &mut Vec<Deferred>) {
         self.collapse();
@@ -1797,6 +1830,9 @@ impl App {
             TIMER_MINUTE => {
                 self.schedule_minute_timer();
                 self.close_idle_phone();
+                if !self.expanded {
+                    self.trim_working_set();
+                }
             }
             TIMER_TRAY => {
                 unsafe {
@@ -1986,6 +2022,13 @@ impl App {
     }
 
     fn oyenza(&self, c: OyenzaCmd) {
+        if matches!(c, OyenzaCmd::SignIn) {
+            crate::services::google::start_login_flow(self.sink.clone());
+            return;
+        }
+        if matches!(c, OyenzaCmd::Disconnect) {
+            crate::services::google::disconnect();
+        }
         if let Some(s) = self.services.as_ref() {
             s.oyenza(c);
         }
@@ -2065,6 +2108,9 @@ impl App {
                 o.agenda = Some(day);
                 o.agenda_unix = Some(self.st.unix);
                 o.agenda_state = crate::state::AgendaState::Ready;
+                if matches!(o.link, crate::state::OyenzaLink::Off) || crate::services::google::is_connected() {
+                    o.link = crate::state::OyenzaLink::Connected { account: "Google Workspace".into() };
+                }
             }
             OyenzaEvent::DayUnavailable => {
                 self.st.oyenza.agenda = None;
@@ -2422,7 +2468,7 @@ impl App {
             OyenzaCancel => self.oyenza(OyenzaCmd::Cancel),
             OyenzaDisconnect => self.oyenza(OyenzaCmd::Disconnect),
             OyenzaOpen => shell::open(oyenza::WEB),
-            // "Update to x…": the island opens on the Update sheet.
+            // "Update to xâ€¦": the island opens on the Update sheet.
             Update => {
                 self.st.open_update();
                 self.expand();
@@ -2543,6 +2589,17 @@ impl App {
                     self.st.show_hud(HudKind::Volume { level, muted }, 1.6);
                 }
             }
+            AppEvent::Discord(d) => {
+                let was_in_voice = self.st.discord.in_voice;
+                self.st.discord = d;
+                if was_in_voice && !self.st.discord.in_voice && self.st.page == PageKind::Discord {
+                    self.st.page = if self.st.media.as_ref().is_some_and(|m| m.is_playing()) {
+                        PageKind::Media
+                    } else {
+                        pages::first_tab(&self.st)
+                    };
+                }
+            }
             AppEvent::Power(p) => {
                 let old = self.st.power;
                 self.st.power = p;
@@ -2652,6 +2709,43 @@ impl App {
             AppEvent::Phone(e) => self.on_phone(e),
             AppEvent::Paired(e) => self.on_paired(e),
             AppEvent::Oyenza(ev) => self.on_oyenza(ev),
+            AppEvent::GoogleTasks(items) => {
+                let now_unix = self.st.unix;
+                let norm = |s: &str| -> String {
+                    s.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(200).collect()
+                };
+                // Deduplicate store tasks first to protect against duplicates
+                let mut seen = std::collections::HashSet::new();
+                self.st.store.tasks.tasks.retain(|t| seen.insert(norm(&t.text)));
+
+                for gt in &items {
+                    let norm_gt = norm(&gt.title);
+                    if norm_gt.is_empty() {
+                        continue;
+                    }
+                    let is_done = gt.status == "completed";
+                    if let Some(existing) = self.st.store.tasks.tasks.iter_mut().find(|t| norm(&t.text) == norm_gt) {
+                        if existing.done != is_done {
+                            existing.done = is_done;
+                            existing.done_unix = if is_done { Some(now_unix) } else { None };
+                        }
+                    } else if let Some(id) = self.st.store.tasks.add(&gt.title, now_unix) {
+                        if is_done {
+                            if let Some(new_task) = self.st.store.tasks.tasks.iter_mut().find(|t| t.id == id) {
+                                new_task.done = true;
+                                new_task.done_unix = Some(now_unix);
+                            }
+                        }
+                    }
+                }
+                self.st.save();
+                self.st.google_tasks = items;
+                self.request_frame();
+            }
+            AppEvent::GmailUnread(count) => {
+                self.st.gmail_unread = count;
+                self.request_frame();
+            }
             AppEvent::Autostart(on) => self.st.ui.autostart = Some(on),
             AppEvent::Addon { id, status } => {
                 // A late report from before a switch-off doesn't bring it back.
@@ -2680,7 +2774,7 @@ impl App {
                 let open = self.updater.as_mut().is_some_and(|u| u.checked(&mut self.st, r, crate::updates::unix_now()));
                 self.schedule_update();
                 self.fetch_setup();
-                // Check for updates… found one to install: the Update sheet.
+                // Check for updatesâ€¦ found one to install: the Update sheet.
                 if open {
                     self.expand();
                 }
@@ -2766,8 +2860,44 @@ impl App {
 
     // ------------------------------------------------------------ island state
 
+    fn check_split_target(&mut self) {
+        if self.mode == Mode::Activity(activities::Activity::MediaDiscord) {
+            let body = self.island.body_rect_at(self.cx);
+            let gap = 12.0;
+            let right_w = 34.0;
+            let left_w = (body.w - gap - right_w).max(40.0);
+            let right_body = Rect::new(body.x + left_w + gap, body.y, right_w, body.h);
+            let mouse_p = self.input.mouse.or(self.hover_arm).or_else(|| {
+                #[cfg(windows)]
+                unsafe {
+                    use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
+                    use windows::Win32::Graphics::Gdi::ScreenToClient;
+                    use windows::Win32::Foundation::POINT;
+                    let mut pt = POINT::default();
+                    if GetCursorPos(&mut pt).is_ok() {
+                        let _ = ScreenToClient(self.hwnd, &mut pt);
+                        Some(Point::new(pt.x as f32 / self.scale(), pt.y as f32 / self.scale()))
+                    } else {
+                        None
+                    }
+                }
+                #[cfg(not(windows))]
+                None
+            });
+            let is_mic = mouse_p.is_some_and(|m| m.x >= right_body.x - 4.0);
+            if is_mic {
+                self.st.page = PageKind::Discord;
+            } else {
+                self.st.page = PageKind::Media;
+            }
+        } else if self.mode == Mode::Activity(activities::Activity::Discord) {
+            self.st.page = PageKind::Discord;
+        }
+    }
+
     fn expand(&mut self) {
         if !self.expanded {
+            self.check_split_target();
             self.expanded = true;
             self.cancel_hover();
             // A recorder installed or removed since the last look (one registry read).
@@ -2776,10 +2906,18 @@ impl App {
             }
             self.check_recorder_alive();
             // A recording under way opens on its page: Pause and Stop are there.
-            if self.st.rec_live() && self.st.record_on() {
+            if self.drag_hover {
+                self.st.page = PageKind::Shelf;
+            } else if matches!(self.mode, Mode::Activity(activities::Activity::MediaDiscord | activities::Activity::Discord)) {
+                // Keep the target page resolved by check_split_target()
+            } else if self.st.rec_live() && self.st.record_on() {
                 self.st.page = PageKind::Record;
+            } else if self.st.media.as_ref().is_some_and(|m| m.is_playing()) {
+                self.st.page = PageKind::Media;
             } else if self.st.page == PageKind::Record && !self.st.record_on() {
                 self.st.page = pages::first_tab(&self.st);
+            } else if !self.st.settings.remember_page {
+                self.st.page = PageKind::from_key(&self.st.settings.start_page);
             }
             if self.st.page == PageKind::Oyenza {
                 self.oyenza(OyenzaCmd::Refresh);
@@ -2809,6 +2947,14 @@ impl App {
         }
     }
 
+fn trim_working_set(&self) {
+    #[cfg(windows)]
+    unsafe {
+        use windows::Win32::System::Threading::{GetCurrentProcess, SetProcessWorkingSetSize};
+        let _ = SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
+    }
+}
+
     fn collapse(&mut self) {
         if self.expanded {
             self.expanded = false;
@@ -2834,6 +2980,7 @@ impl App {
             if let Some(n) = self.st.notice.as_mut() {
                 n.until = n.until.max(min_until);
             }
+            self.trim_working_set();
         }
         self.request_frame();
     }
@@ -3735,7 +3882,7 @@ impl App {
         // Glass: copy the screen under the window while the GPU draws (the
         // self-test brings its own backdrop), then draw this frame's glass
         // before the frame starts. The look follows the glass, light or dark.
-        let glass_theme = self.st.settings.theme == Theme::Glass;
+        let glass_theme = false;
         let window_px = RECT { left: self.surface.x, top: self.surface.y, right: self.surface.x + sw, bottom: self.surface.y + sh };
         // Only while someone can see it: not while hidden, locked or the display
         // is off. Not over a full-screen app either: copying a game's screen
@@ -3782,10 +3929,30 @@ impl App {
                     if floating {
                         // Hidden floats nothing: its band takes the mouse.
                         if !hidden_idle {
-                            pill::shape::draw_body(&mut canvas, body, geom.r, island_color, border);
+                            if matches!(mode, crate::activities::Mode::Activity(crate::activities::Activity::MediaDiscord)) {
+                                let gap = 12.0;
+                                let right_w = 34.0;
+                                let left_w = (body.w - gap - right_w).max(40.0);
+                                let left_body = Rect::new(body.x, body.y, left_w, body.h);
+                                let right_body = Rect::new(body.x + left_w + gap, body.y, right_w, body.h);
+                                pill::shape::draw_body(&mut canvas, left_body, geom.r, island_color, border);
+                                pill::shape::draw_body(&mut canvas, right_body, geom.r, island_color, border);
+                            } else {
+                                pill::shape::draw_body(&mut canvas, body, geom.r, island_color, border);
+                            }
                         }
                     } else {
-                        canvas.notch(body, geom.r, SHOULDER, island_color, border);
+                        if matches!(mode, crate::activities::Mode::Activity(crate::activities::Activity::MediaDiscord)) {
+                            let gap = 12.0;
+                            let right_w = 34.0;
+                            let left_w = (body.w - gap - right_w).max(40.0);
+                            let left_body = Rect::new(body.x, body.y, left_w, body.h);
+                            let right_body = Rect::new(body.x + left_w + gap, body.y, right_w, body.h);
+                            canvas.notch(left_body, geom.r, 6.0, island_color, border);
+                            canvas.notch(right_body, geom.r, 5.0, island_color, border);
+                        } else {
+                            canvas.notch(body, geom.r, SHOULDER, island_color, border);
+                        }
                     }
                 }
 
@@ -3861,8 +4028,28 @@ impl App {
         // page content a wheel the page didn't use does nothing (a short list
         // must not jump pages where a long one would scroll).
         if let Mode::Expanded(p) = self.mode {
-            let over_header = self.input.mouse.is_some_and(|m| m.y < body.y + pages::HEADER_H);
-            if wheel_left != 0.0 && over_header {
+            if self.expanded && self.input.mouse.is_some() && !self.text_focus {
+                unsafe {
+                    let left_down = (GetAsyncKeyState(VK_LEFT.0 as i32) as u16 & 0x8000) != 0;
+                    let right_down = (GetAsyncKeyState(VK_RIGHT.0 as i32) as u16 & 0x8000) != 0;
+                    if left_down && !self.key_left_down {
+                        let prev = pages::step_tab(p, &self.st, false);
+                        self.st.cmds.push(Command::SetPage(prev));
+                    }
+                    if right_down && !self.key_right_down {
+                        let next = pages::step_tab(p, &self.st, true);
+                        self.st.cmds.push(Command::SetPage(next));
+                    }
+                    self.key_left_down = left_down;
+                    self.key_right_down = right_down;
+                }
+            } else {
+                self.key_left_down = false;
+                self.key_right_down = false;
+            }
+
+            let switch_page_wheel = self.input.mouse.is_some();
+            if wheel_left != 0.0 && switch_page_wheel {
                 if now - self.wheel_t > 0.25 || wheel_left.signum() != self.wheel_acc.signum() {
                     self.wheel_acc = 0.0;
                 }
@@ -4022,7 +4209,7 @@ impl App {
         }
     }
 
-    /// Wake up for the next visible change (HUD expiry, countdown second, …).
+    /// Wake up for the next visible change (HUD expiry, countdown second, â€¦).
     fn schedule_wake(&mut self) {
         let now = self.st.now;
         let mut next: Option<f64> = None;
@@ -4118,7 +4305,7 @@ impl App {
         }
     }
 
-    /// Check for updates… (the menu): read the update file now, even on
+    /// Check for updatesâ€¦ (the menu): read the update file now, even on
     /// battery saver (someone asked); the answer goes on the island.
     fn check_for_updates(&mut self) {
         let now = crate::updates::unix_now();
@@ -4824,6 +5011,69 @@ impl App {
                 Command::Collapse => self.collapse(),
                 Command::Play(s) => services::sound::play(s),
                 Command::OpenUrl(u) => shell::open(&u),
+                Command::CreateGoogleTask(title) => {
+                    crate::services::google::create_task(title, self.sink.clone());
+                }
+                Command::CompleteGoogleTask { list_id, task_id, completed } => {
+                    for task in &mut self.st.google_tasks {
+                        if task.id == task_id {
+                            task.status = if completed { "completed".into() } else { "needsAction".into() };
+                        }
+                    }
+                    self.request_frame();
+                    crate::services::google::set_task_status(list_id, task_id, completed, self.sink.clone());
+                }
+                Command::DeleteGoogleTask { list_id, task_id } => {
+                    self.st.google_tasks.retain(|t| t.id != task_id);
+                    self.request_frame();
+                    crate::services::google::delete_task(list_id, task_id, self.sink.clone());
+                }
+                Command::ToggleTodayTasks => {
+                    self.st.today_view_tasks = !self.st.today_view_tasks;
+                    self.request_frame();
+                }
+                Command::ToggleShelfScratchpad => {
+                    self.st.shelf_mode_scratchpad = !self.st.shelf_mode_scratchpad;
+                    self.request_frame();
+                }
+                Command::CopyText(text) => {
+                    services::clipboard::set_text(self.hwnd, &text);
+                }
+                Command::CreateGoogleEvent(text) => {
+                    crate::services::google::create_quick_event(text, self.sink.clone());
+                    self.st.today_cal_input.clear();
+                    self.st.today_cal_input_open = false;
+                    self.request_frame();
+                }
+                Command::AddScratchpadNote(note) => {
+                    let note = note.trim();
+                    if !note.is_empty() {
+                        if !self.st.scratchpad_text.is_empty() {
+                            self.st.scratchpad_text.push('\n');
+                        }
+                        self.st.scratchpad_text.push_str(note);
+                        let p = crate::paths::data_dir().join("scratchpad.txt");
+                        let _ = std::fs::write(&p, &self.st.scratchpad_text);
+                    }
+                    self.st.scratchpad_input.clear();
+                    self.request_frame();
+                }
+                Command::DeleteScratchpadNote(idx) => {
+                    let mut lines: Vec<&str> = self.st.scratchpad_text.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+                    if idx < lines.len() {
+                        lines.remove(idx);
+                        self.st.scratchpad_text = lines.join("\n");
+                        let p = crate::paths::data_dir().join("scratchpad.txt");
+                        let _ = std::fs::write(&p, &self.st.scratchpad_text);
+                    }
+                    self.request_frame();
+                }
+                Command::ClearScratchpad => {
+                    self.st.scratchpad_text.clear();
+                    let p = crate::paths::data_dir().join("scratchpad.txt");
+                    let _ = std::fs::write(&p, "");
+                    self.request_frame();
+                }
                 Command::Update => self.update_now(),
                 Command::CheckForUpdates => self.check_for_updates(),
                 Command::InstallOnNextStart => {
@@ -5552,9 +5802,9 @@ impl App {
 /// Oyen's orange in his theme, Windows' accent colour otherwise.
 fn theme_accent(theme: Theme) -> Color {
     if oyen::on(theme) {
-        oyen::ORANGE
-    } else if theme == Theme::Glass {
-        services::system_accent_base().unwrap_or(palette::BLUE)
+        Color::hex(0xFF8A00) // Oren Cat warm vibrant orange
+    } else if crate::corgi::on(theme) {
+        crate::corgi::GOLDEN // Corgi Golden Caramel (#E2943B)
     } else {
         services::system_accent().unwrap_or(palette::BLUE)
     }
@@ -5590,7 +5840,7 @@ fn dwm_counters() -> Option<(u64, u64, u64)> {
     Some((info.cRefresh, info.cFrame, info.cFramesMissed))
 }
 
-/// The window's size in pixels for an island body up to `body_w`×`body_h`
+/// The window's size in pixels for an island body up to `body_w`Ã—`body_h`
 /// DIPs at `scale`, on a monitor `mon_w` pixels wide: room for the spring's
 /// overshoot, and the island's own room around the body (Classic: the
 /// shoulders and hit margin; floating: the gap above, the shadow's room

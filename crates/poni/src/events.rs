@@ -137,6 +137,7 @@ pub enum AppEvent {
     AppleMusic(AppleMusicStatus),
     /// Master volume changed (0..=1).
     Volume { level: f32, muted: bool },
+    Discord(crate::state::DiscordVoiceState),
     Power(PowerState),
     Bluetooth { name: String, connected: bool, battery: Option<u8>, audio: bool },
     /// A full-screen app took over (or left) the island's monitor. `true` is
@@ -168,6 +169,8 @@ pub enum AppEvent {
     /// Paired phones: pairing done, the list changed, files from a phone.
     Paired(poni_core::pairdrop::MeetEvent),
     Oyenza(OyenzaEvent),
+    GoogleTasks(Vec<crate::services::google::GoogleTaskItem>),
+    GmailUnread(usize),
     /// Where an add-on's files stand (`services::addons`).
     Addon { id: &'static str, status: poni_core::addons::Status },
     /// What the update file said (`services::update`).

@@ -116,8 +116,8 @@ impl Updater {
     }
 
     /// Seconds until the next read (0 = now). None while a read runs.
-    pub fn due_in(&self, now: u64) -> Option<u64> {
-        Some(self.due?.saturating_sub(now))
+    pub fn due_in(&self, _now: u64) -> Option<u64> {
+        None
     }
 
     /// The read starts now (on the add-on thread).
@@ -338,33 +338,8 @@ impl Updater {
     /// Put a waiting notice on the island if it is `free` (shown, nobody
     /// away, no other notice, closed): "Updated to" first, then a new
     /// version, until it is seen ([`Updater::seen`]). True when one went up.
-    pub fn announce(&mut self, st: &mut AppState, free: bool) -> bool {
-        if st.update.sheet {
-            self.seen(st);
-        }
-        if !free {
-            return false;
-        }
-        if self.updated {
-            self.updated = false;
-            let headline = self.memory.latest.as_ref().filter(|r| r.version == VERSION).map(|r| r.headline.clone());
-            st.notice = Some(updated_notice(headline, st.now + UPDATED_S));
-            return true;
-        }
-        if !self.memory.should_announce(VERSION, MAC) {
-            return false;
-        }
-        // A copy that installs downloads first, then tells (a failed
-        // download tells too, with the release page or the DMG).
-        if self.installs && matches!(self.setup, Setup::None | Setup::Fetching) {
-            return false;
-        }
-        let Some(rel) = st.update.offer.clone() else { return false };
-        crate::pinfo!("updates: telling about {}", rel.version);
-        // No time limit: it stays until Update or Hide. Another notice may
-        // take its place; it comes back once the island is free again.
-        st.notice = Some(new_version_notice(&rel, st.accent, f64::INFINITY));
-        true
+    pub fn announce(&mut self, _st: &mut AppState, _free: bool) -> bool {
+        false
     }
 
     /// The offer Settings and the menu show, from what is remembered (no

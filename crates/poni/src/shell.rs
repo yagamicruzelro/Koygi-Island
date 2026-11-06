@@ -129,6 +129,193 @@ pub fn open_claude_app() {
     });
 }
 
+/// Open the Discord app through its URI scheme (asynchronously), optionally to a channel.
+pub fn open_discord_app(url: &str) {
+    let target = if url.starts_with("discord://") {
+        url.to_string()
+    } else {
+        "discord://".to_string()
+    };
+    run("open", move || {
+        let t = HSTRING::from(target.as_str());
+        let r = unsafe { ShellExecuteW(None, w!("open"), &t, None, None, SW_SHOWNORMAL) };
+        if (r.0 as isize) <= 32 {
+            crate::pwarn!("open failed ({}): {}", r.0 as isize, for_log(&target));
+        }
+    });
+}
+
+/// Send Discord shortcut keystroke combination (asynchronously).
+pub fn send_discord_shortcut_seamless(ctrl: bool, shift: bool, vk: u16) {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VIRTUAL_KEY,
+        VK_CONTROL, VK_SHIFT,
+    };
+    run("shortcut", move || {
+        let mut inputs = Vec::new();
+        if ctrl {
+            inputs.push(INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: VK_CONTROL,
+                        dwFlags: Default::default(),
+                        ..Default::default()
+                    },
+                },
+            });
+        }
+        if shift {
+            inputs.push(INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: VK_SHIFT,
+                        dwFlags: Default::default(),
+                        ..Default::default()
+                    },
+                },
+            });
+        }
+        inputs.push(INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(vk),
+                    dwFlags: Default::default(),
+                    ..Default::default()
+                },
+            },
+        });
+        // Key ups in reverse
+        inputs.push(INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(vk),
+                    dwFlags: KEYEVENTF_KEYUP,
+                    ..Default::default()
+                },
+            },
+        });
+        if shift {
+            inputs.push(INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: VK_SHIFT,
+                        dwFlags: KEYEVENTF_KEYUP,
+                        ..Default::default()
+                    },
+                },
+            });
+        }
+        if ctrl {
+            inputs.push(INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: VK_CONTROL,
+                        dwFlags: KEYEVENTF_KEYUP,
+                        ..Default::default()
+                    },
+                },
+            });
+        }
+        unsafe {
+            SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+        }
+    });
+}
+
+/// Send Discord shortcut keystroke combination (asynchronously) via SendInput.
+pub fn send_discord_shortcut(focus: bool, ctrl: bool, shift: bool, vk: u16) {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VIRTUAL_KEY,
+        VK_CONTROL, VK_SHIFT,
+    };
+    run("shortcut", move || {
+        if focus {
+            unsafe {
+                let _ = ShellExecuteW(None, w!("open"), w!("discord://"), None, None, SW_SHOWNORMAL);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(60));
+        }
+        let mut inputs = Vec::new();
+        if ctrl {
+            inputs.push(INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: VK_CONTROL,
+                        dwFlags: Default::default(),
+                        ..Default::default()
+                    },
+                },
+            });
+        }
+        if shift {
+            inputs.push(INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: VK_SHIFT,
+                        dwFlags: Default::default(),
+                        ..Default::default()
+                    },
+                },
+            });
+        }
+        inputs.push(INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(vk),
+                    dwFlags: Default::default(),
+                    ..Default::default()
+                },
+            },
+        });
+        inputs.push(INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(vk),
+                    dwFlags: KEYEVENTF_KEYUP,
+                    ..Default::default()
+                },
+            },
+        });
+        if shift {
+            inputs.push(INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: VK_SHIFT,
+                        dwFlags: KEYEVENTF_KEYUP,
+                        ..Default::default()
+                    },
+                },
+            });
+        }
+        if ctrl {
+            inputs.push(INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: VK_CONTROL,
+                        dwFlags: KEYEVENTF_KEYUP,
+                        ..Default::default()
+                    },
+                },
+            });
+        }
+        unsafe {
+            SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+        }
+    });
+}
+
 /// Run a service's own sign-in command in a console window that stays open
 /// after it (`cmd /k`), asynchronously: the AI tab's Sign in. `program` is
 /// an existing absolute path, or a bare name (`claude`) for cmd to find on

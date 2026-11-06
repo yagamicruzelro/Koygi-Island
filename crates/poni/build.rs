@@ -2,10 +2,30 @@ fn main() {
     println!("cargo:rerun-if-changed=res/poni.rc");
     println!("cargo:rerun-if-changed=res/poni.manifest");
     println!("cargo:rerun-if-changed=res/poni.ico");
+    
     // Only Windows targets get the icon, manifest (Per-Monitor-V2 DPI) and version info.
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
-        // Panics with a clear message if rc.exe / x86_64-w64-mingw32-windres is missing.
-        embed_resource::compile("res/poni.rc", embed_resource::NONE);
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let res_dir = std::path::Path::new(&manifest_dir).join("res");
+        let out_obj = res_dir.join("poni_res.o");
+
+        let windres_cmd = if std::path::Path::new(r"E:\Development\w64devkit\bin\windres.exe").exists() {
+            r"E:\Development\w64devkit\bin\windres.exe".to_string()
+        } else {
+            "windres".to_string()
+        };
+
+        let status = std::process::Command::new(&windres_cmd)
+            .current_dir(&res_dir)
+            .args(&["-i", "poni.rc", "-o", "poni_res.o", "-O", "coff", "-F", "pe-x86-64"])
+            .status();
+
+        if let Ok(st) = status {
+            if st.success() {
+                println!("cargo:rustc-link-arg-bins={}", out_obj.display());
+            }
+        }
+
         // MSVC builds: resolve statically imported non-KnownDLLs (d2d1, dwrite,
         // dwmapi, winmm) from System32 only, never from the exe's folder.
         if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc") {
@@ -15,10 +35,6 @@ fn main() {
     build_info();
 }
 
-/// Which build this is, for the menu's About line (src/version.rs): the `ci`
-/// run of a release tag builds the release, any other CI run a test build of
-/// its commit, and anything else is a local build (no commit or day, so a
-/// local rebuild never shows a stale one).
 fn build_info() {
     for var in ["GITHUB_ACTIONS", "GITHUB_REF_TYPE", "GITHUB_REF_NAME", "GITHUB_SHA"] {
         println!("cargo:rerun-if-env-changed={var}");
@@ -34,7 +50,6 @@ fn build_info() {
     println!("cargo:rustc-env=PONI_BUILD_DAY={day}");
 }
 
-/// Today in UTC as "25 Oct 2026" (Howard Hinnant's days-to-civil).
 fn utc_day() -> String {
     let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
     let z = (secs / 86_400) as i64 + 719_468;

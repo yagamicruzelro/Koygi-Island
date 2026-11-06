@@ -69,9 +69,30 @@ pub fn draw(ui: &mut Ui, st: &mut AppState, body: Rect) -> bool {
             true
         }
         IdleStyle::Minimal => true,
-        // Classic draws the eyes (centred, blinking on its own wake) and the
-        // invisible strip.
-        IdleStyle::Eyes | IdleStyle::Hidden => false,
+        IdleStyle::Eyes => {
+            let cx = body.center().x;
+            let bar_y = body.bottom() - 7.5;
+            let top = body.y + 1.0;
+            if crate::oyen::on(st.settings.theme) {
+                let look = ui.input.mouse.map(|p| (p.x - body.center().x) / (body.w / 2.0));
+                let (frame, moving) = crate::oyen::rest(st.now, crate::activities::night(st), look);
+                if moving || look.is_some() {
+                    ui.request_anim();
+                }
+                crate::oyen::peek(ui.c, &frame, cx, bar_y, 22.0, top);
+                true
+            } else if crate::corgi::on(st.settings.theme) {
+                let look = ui.input.mouse.map(|p| (p.x - body.center().x) / (body.w / 2.0));
+                if crate::activities::night(st) || look.is_some() {
+                    ui.request_anim();
+                }
+                crate::corgi::rest_peek(ui.c, cx, bar_y, 22.0, top, ui.now, crate::activities::night(st), look);
+                true
+            } else {
+                false
+            }
+        }
+        IdleStyle::Hidden => false,
     }
 }
 
@@ -92,11 +113,16 @@ fn battery_state(st: &AppState) -> Option<(u8, bool)> {
 
 fn clock_width(st: &AppState) -> f32 {
     let h24 = st.settings.use_24h;
+    let mascot_lead = if crate::oyen::on(st.settings.theme) || crate::corgi::on(st.settings.theme) {
+        34.0
+    } else {
+        0.0
+    };
     if battery_state(st).is_none() {
-        return if h24 { CLOCK_W } else { CLOCK_12H_W };
+        return (if h24 { CLOCK_W } else { CLOCK_12H_W }) + mascot_lead;
     }
     let time = if h24 { TIME_SLOT } else { TIME_12H_SLOT };
-    (SIDE + time + MID_GAP + PCT_SLOT + PCT_GAP + BATTERY_W + SIDE).round()
+    (SIDE + mascot_lead + time + MID_GAP + PCT_SLOT + PCT_GAP + BATTERY_W + SIDE).round()
 }
 
 /// "13:27" at the left end, "99%" and the battery at the right one (ref2).
@@ -104,12 +130,66 @@ fn clock_width(st: &AppState) -> f32 {
 fn draw_clock(ui: &mut Ui, st: &AppState, body: Rect) {
     let time = fmt_clock(&st.local, st.settings.use_24h);
     let ts = TextStyle::headline().tabular().color(Color::white(1.0));
+    let has_oren = crate::oyen::on(st.settings.theme);
+    let has_corgi = crate::corgi::on(st.settings.theme);
+    let has_mascot = has_oren || has_corgi;
+
+    const MASCOT_CHAR_W: f32 = 22.0;
+    const MASCOT_GAP: f32 = 7.0;
+
+    let (tw, _) = ui.c.measure(&time, &ts, 400.0);
+
     let Some((percent, charging)) = battery_state(st) else {
-        ui.c.text(&time, body, &ts.center());
+        if has_mascot {
+            let group_w = MASCOT_CHAR_W + MASCOT_GAP + tw;
+            let group_x = body.center().x - group_w / 2.0;
+            let cx = group_x + MASCOT_CHAR_W / 2.0;
+            let bar_y = body.bottom() - 7.5;
+            let top = body.y + 1.0;
+            if has_oren {
+                let look = ui.input.mouse.map(|p| (p.x - body.center().x) / (body.w / 2.0));
+                let (frame, moving) = crate::oyen::rest(st.now, crate::activities::night(st), look);
+                if moving || look.is_some() {
+                    ui.request_anim();
+                }
+                crate::oyen::peek(ui.c, &frame, cx, bar_y, MASCOT_CHAR_W, top);
+            } else if has_corgi {
+                let look = ui.input.mouse.map(|p| (p.x - body.center().x) / (body.w / 2.0));
+                if crate::activities::night(st) || look.is_some() {
+                    ui.request_anim();
+                }
+                crate::corgi::rest_peek(ui.c, cx, bar_y, MASCOT_CHAR_W, top, ui.now, crate::activities::night(st), look);
+            }
+            ui.c.text(&time, Rect::new(group_x + MASCOT_CHAR_W + MASCOT_GAP, body.y, tw + 2.0, body.h), &ts);
+        } else {
+            ui.c.text(&time, body, &ts.center());
+        }
         return;
     };
-    let (tw, _) = ui.c.measure(&time, &ts, 400.0);
-    ui.c.text(&time, Rect::new(body.x + SIDE, body.y, tw + 2.0, body.h), &ts);
+
+    if has_mascot {
+        let cx = body.x + 30.0;
+        let bar_y = body.bottom() - 7.5;
+        let top = body.y + 1.0;
+        if has_oren {
+            let look = ui.input.mouse.map(|p| (p.x - body.center().x) / (body.w / 2.0));
+            let (frame, moving) = crate::oyen::rest(st.now, crate::activities::night(st), look);
+            if moving || look.is_some() {
+                ui.request_anim();
+            }
+            crate::oyen::peek(ui.c, &frame, cx, bar_y, MASCOT_CHAR_W, top);
+        } else if has_corgi {
+            let look = ui.input.mouse.map(|p| (p.x - body.center().x) / (body.w / 2.0));
+            if crate::activities::night(st) || look.is_some() {
+                ui.request_anim();
+            }
+            crate::corgi::rest_peek(ui.c, cx, bar_y, MASCOT_CHAR_W, top, ui.now, crate::activities::night(st), look);
+        }
+        let time_x = cx + MASCOT_CHAR_W / 2.0 + MASCOT_GAP;
+        ui.c.text(&time, Rect::new(time_x, body.y, tw + 2.0, body.h), &ts);
+    } else {
+        ui.c.text(&time, Rect::new(body.x + SIDE, body.y, tw + 2.0, body.h), &ts);
+    }
 
     let cy = body.center().y;
     let glyph = Rect::new(body.right() - SIDE - BATTERY_W, cy - BATTERY_H / 2.0, BATTERY_W, BATTERY_H);

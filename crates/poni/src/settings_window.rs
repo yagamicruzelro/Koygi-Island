@@ -130,18 +130,15 @@ pub enum Section {
 }
 
 impl Section {
-    pub const ALL: [Section; 12] = [
+    pub const ALL: [Section; 9] = [
         Section::General,
         Section::Appearance,
         Section::Island,
         Section::Music,
         Section::Popups,
         Section::Tabs,
-        Section::Addons,
         Section::Focus,
         Section::Prayer,
-        Section::Ai,
-        Section::Oyenza,
         Section::About,
     ];
 
@@ -336,17 +333,19 @@ const CLOSE: [(u32, &str); 3] = [(0, "At once"), (400, "Short"), (1000, "Long")]
 const DISPLAYS: [(MonitorChoice, &str); 2] = [(MonitorChoice::Primary, "Main display"), (MonitorChoice::Cursor, "Under the pointer")];
 const FULLSCREEN: [(bool, &str); 2] = [(true, "Hide"), (false, "Stay on top")];
 const SOUNDS: [(PrayerSound, &str); 3] = [(PrayerSound::Adzan, "Adzan"), (PrayerSound::Tone, "Tone"), (PrayerSound::Silent, "Silent")];
-const THEMES: [(Theme, &str, &str); 4] = [
+const THEMES: [(Theme, &str, &str); 6] = [
     (Theme::Classic, "Classic", "A black island at the top edge"),
-    (Theme::Oyen, "Oyen", "Oyen lives in the island"),
-    (Theme::Glass, "Glass", "Frosted glass over your screen"),
+    (Theme::Oren, "Oren", "Oren cat lives in the island"),
+    (Theme::Corgi, "Corgi", "Playful corgi lives in the island"),
     (Theme::Pill, "Pill", "Floats just below the top edge"),
+    (Theme::OrenPill, "Oren Pill", "Floating black pill with Oren animations"),
+    (Theme::CorgiPill, "Corgi Pill", "Floating black pill with Corgi animations"),
 ];
 /// Start with Windows, or at login on a Mac (its menu bar says so).
 const AUTOSTART: (&str, &str) = if cfg!(target_os = "macos") {
-    ("Start at login", "Opens Oyenza Studio when you log in")
+    ("Start at login", "Opens Dynamic Island when you log in")
 } else {
-    ("Start with Windows", "Opens Oyenza Studio when you sign in")
+    ("Start with Windows", "Opens Dynamic Island when you sign in")
 };
 const WIDTH_STEP: f32 = 20.0;
 const OFFSET_STEP: i32 = 100;
@@ -367,7 +366,8 @@ fn nearest(list: &[(u32, &str)], ms: u32) -> Option<usize> {
 fn idle_name(s: IdleStyle, theme: Theme) -> &'static str {
     match s {
         IdleStyle::Clock => "Clock",
-        IdleStyle::Eyes if theme == Theme::Oyen => "Oyen",
+        IdleStyle::Eyes if crate::oyen::on(theme) => "Oren",
+        IdleStyle::Eyes if crate::corgi::on(theme) => "Corgi",
         IdleStyle::Eyes => "Eyes",
         IdleStyle::Minimal => "Minimal",
         IdleStyle::Hidden => "Hidden",
@@ -477,7 +477,7 @@ pub fn blocks(section: Section, st: &AppState) -> Vec<Block> {
                     item(Key::Tab(p), p.title(), sub, Ctl::Switch(Some(!st.tab_hidden(p))))
                 })
                 .collect();
-            vec![Block::Group(Some("When the island opens"), open), Block::Group(Some("Tabs in the island"), tabs), Block::Note("AI, Oyenza and the add-ons' pages always have a tab.")]
+            vec![Block::Group(Some("When the island opens"), open), Block::Group(Some("Tabs in the island"), tabs), Block::Note("Configure your favorite tabs and startup preferences.")]
         }
         Section::Addons => vec![Block::Addons],
         Section::Focus => {
@@ -528,7 +528,7 @@ pub fn blocks(section: Section, st: &AppState) -> Vec<Block> {
             if u.notices {
                 rows.push(item(Key::AiNear, "Close to the limit at", None, Ctl::Stepper(format!("{} %", st.usage_near_pct()))));
             }
-            vec![Block::Group(None, rows), Block::Note("Services, keys and the Oyenza Inference connect are on the AI tab.")]
+            vec![Block::Group(None, rows), Block::Note("Island settings.")]
         }
         Section::Oyenza => vec![Block::Account],
         Section::About => vec![
@@ -536,7 +536,6 @@ pub fn blocks(section: Section, st: &AppState) -> Vec<Block> {
             Block::Group(
                 None,
                 vec![
-                    item(Key::ReleaseNotes, "What's new", Some("This version's release notes"), Ctl::Button("Open")),
                     item(Key::LyricsCredit, "Lyrics", Some("Synced lyrics come from LRCLIB"), Ctl::Button("lrclib.net")),
                 ],
             ),
@@ -1097,7 +1096,7 @@ fn draw_close(ui: &mut Ui, card: Rect, m: &mut Motion) -> bool {
 /// `top`: room for the Mac's window buttons.
 fn draw_sidebar(ui: &mut Ui, st: &mut AppState, side: Rect, section: Section, top: f32, m: &mut Motion) -> Option<Section> {
     let icon_c = Point::new(side.x + 20.0 + 12.0, side.y + top + 32.0);
-    crate::oyen::app_icon(ui.c, icon_c, 24.0);
+    crate::corgi::app_icon(ui.c, icon_c, 24.0);
     ui.c.text("Advanced settings", Rect::new(icon_c.x + 20.0, side.y + top + 20.0, side.w - 60.0, 24.0), &TextStyle::headline());
     let list = sections(st);
     let about_at = side.bottom() - 12.0 - NAV_H;
@@ -1132,7 +1131,7 @@ fn draw_sidebar(ui: &mut Ui, st: &mut AppState, side: Rect, section: Section, to
         }
         let tile = Rect::new(r.x + 8.0, r.center().y - NAV_TILE / 2.0, NAV_TILE, NAV_TILE);
         if *s == Section::About {
-            crate::oyen::app_icon(ui.c, tile.center(), NAV_TILE);
+            crate::corgi::app_icon(ui.c, tile.center(), NAV_TILE);
         } else {
             ui.c.fill_rrect(tile, 6.0, s.tint());
             ui.c.icon(s.icon(), Rect::from_center(tile.center(), 14.0, 14.0), palette::ON_ACCENT);
@@ -1173,7 +1172,7 @@ fn block_h(st: &AppState, b: &Block) -> f32 {
                 72.0
             }
         }
-        Block::Themes => GROUP_TITLE_H + THEME_CARD_H,
+        Block::Themes => GROUP_TITLE_H + 2.0 * THEME_CARD_H + THEME_GAP,
         Block::Account => 72.0,
         Block::Addons => crate::pages::addons::height(st),
         Block::Note(_) => 18.0,
@@ -1422,62 +1421,15 @@ fn fill_row(ui: &mut Ui, row: Rect, c: Color, (first, last): (bool, bool)) {
 /// The version card: Oyen's tile, "Oyenza Studio" and this version, and
 /// Check now; with a later version out, what it brings and how to get it
 /// (the island's Update sheet does the same).
-fn draw_version(ui: &mut Ui, st: &mut AppState, r: Rect, view: Rect, sf: &Surfaces) {
+fn draw_version(ui: &mut Ui, _st: &mut AppState, r: Rect, _view: Rect, sf: &Surfaces) {
     fill_group(ui, r, sf.group);
     let head = Rect::new(r.x + ROW_PAD, r.y, r.w - 2.0 * ROW_PAD, 72.0);
     let cy = head.center().y;
-    crate::oyen::app_icon(ui.c, Point::new(head.x + 20.0, cy), 40.0);
+    crate::corgi::app_icon(ui.c, Point::new(head.x + 20.0, cy), 40.0);
     let tx = head.x + 54.0;
-    let clickable = visible(r, view).is_some_and(|v| v.h >= r.h - 0.5);
-    let check = clickable.then(|| crate::pages::settings::check_slot(ui, st, head)).flatten();
-    let right = check.map_or(head.right(), |b| b.x - 12.0);
-    ui.c.text("Oyenza Studio", Rect::new(tx, cy - 20.0, (right - tx).max(0.0), 22.0), &TextStyle::headline());
-    ui.c.text(&format!("Version {VERSION}"), Rect::new(tx, cy + 2.0, (right - tx).max(0.0), 17.0), &TextStyle::footnote().color(palette::TEXT_DIM));
-    if let Some(b) = check {
-        crate::pages::settings::draw_check(ui, st, b);
-    }
-    let Some(rel) = st.update.offer.clone() else { return };
-    let px = 1.0 / ui.c.scale().max(0.5);
-    let row = Rect::new(head.x, head.bottom(), head.w, r.bottom() - head.bottom());
-    ui.c.fill_rect(Rect::new(row.x, row.y, row.w, px), RULE);
-    let accent = st.accent;
-    // Windows with the Setup in: now or next start; otherwise its page (or the Mac's DMG).
-    let mut buttons: Vec<(&str, Command, PillStyle)> = Vec::new();
-    if st.update.ready {
-        buttons.push(("Install now", Command::Update, PillStyle::Primary(accent)));
-        let later = if st.update.next_start { "Set for next start" } else { "On next start" };
-        buttons.push((later, Command::InstallOnNextStart, PillStyle::Utility));
-    } else {
-        buttons.push(("Download", Command::Update, PillStyle::Primary(accent)));
-    }
-    buttons.push(("What's new", Command::OpenUrl(rel.notes.clone()), PillStyle::Utility));
-    let mut x = row.right();
-    let by = row.center().y - PILL_SMALL / 2.0;
-    let mut picked = None;
-    for (i, (label, cmd, style)) in buttons.into_iter().enumerate().rev() {
-        let w = ui.pill_width(label, false, true);
-        x -= w;
-        let b = Rect::new(x, by, w, PILL_SMALL);
-        x -= PILL_GAP;
-        let clicked = if clickable {
-            ui.pill(wid_n("settingswin.update", i as u64), b, label, None, style).clicked
-        } else {
-            let mut none = Input::default();
-            let mut no_hits = Vec::new();
-            Ui::new(&mut *ui.c, &mut none, &mut no_hits, 0.0).pill(0, b, label, None, style);
-            false
-        };
-        if clicked {
-            picked = Some(cmd);
-        }
-    }
-    let tw = (x - 12.0 - row.x).max(0.0);
-    let cy = row.center().y;
-    crate::activities::text_with_dim(ui, "Update available", &rel.version, Rect::new(row.x, cy - 19.0, tw, 19.0), TextStyle::body().weight(Weight::Semibold));
-    ui.c.text(&rel.headline, Rect::new(row.x, cy + 1.0, tw, 17.0), &TextStyle::footnote().color(palette::TEXT_DIM));
-    if let Some(c) = picked {
-        st.cmd(c);
-    }
+    let right = head.right();
+    ui.c.text("Koygi Island", Rect::new(tx, cy - 20.0, (right - tx).max(0.0), 22.0), &TextStyle::headline());
+    ui.c.text("Version Beta", Rect::new(tx, cy + 2.0, (right - tx).max(0.0), 17.0), &TextStyle::footnote().color(palette::TEXT_DIM));
 }
 
 /// The four themes, a card each: a small screen with the island on it as
@@ -1485,12 +1437,14 @@ fn draw_version(ui: &mut Ui, st: &mut AppState, r: Rect, view: Rect, sf: &Surfac
 /// the theme picked.
 fn draw_themes(ui: &mut Ui, st: &mut AppState, r: Rect, view: Rect, sf: &Surfaces, m: &mut Motion) {
     ui.c.text("Theme", Rect::new(r.x + 2.0, r.y, r.w, GROUP_TITLE_H - 6.0), &TextStyle::footnote().weight(Weight::Semibold).color(palette::TEXT_DIM));
-    let n = THEMES.len() as f32;
-    let w = ((r.w - (n - 1.0) * THEME_GAP) / n).floor();
+    let cols = 3;
+    let w = ((r.w - 2.0 * THEME_GAP) / cols as f32).floor();
     let accent = st.accent;
     let mut picked = None;
     for (i, (theme, name, line)) in THEMES.iter().enumerate() {
-        let c = Rect::new(r.x + i as f32 * (w + THEME_GAP), r.y + GROUP_TITLE_H, w, THEME_CARD_H);
+        let col = (i % cols) as f32;
+        let row = (i / cols) as f32;
+        let c = Rect::new(r.x + col * (w + THEME_GAP), r.y + GROUP_TITLE_H + row * (THEME_CARD_H + THEME_GAP), w, THEME_CARD_H);
         let id = wid_n("settingswin.theme", i as u64);
         let resp = match visible(c, view) {
             Some(hit) => ui.button(id, hit),
@@ -1545,27 +1499,38 @@ fn draw_theme_preview(c: &mut Canvas, theme: Theme, screen: Rect) {
     let cx = screen.center().x;
     let clock = TextStyle::caption().weight(Weight::Semibold).tabular().center();
     match theme {
-        Theme::Classic | Theme::Oyen | Theme::Glass => {
+        Theme::Classic | Theme::Oren | Theme::Corgi => {
             let body = Rect::new(cx - 34.0, screen.y, 68.0, 20.0);
-            let (fill, border) = match theme {
-                Theme::Glass => (Color::white(0.30), Some(Color::white(0.45))),
-                _ => (palette::ISLAND, None),
-            };
-            c.notch(body, 9.0, 5.0, fill, border);
-            if theme == Theme::Oyen {
-                // Oyen's eyes peek over the island's edge.
+            c.notch(body, 9.0, 5.0, palette::ISLAND, None);
+            if theme == Theme::Oren {
                 for dx in [-6.0, 6.0] {
                     c.fill_rrect(Rect::from_center(Point::new(cx + dx, body.center().y), 5.0, 8.0), 2.5, palette::ORANGE);
                 }
+            } else if theme == Theme::Corgi {
+                for dx in [-7.0, 7.0] {
+                    c.fill_rrect(Rect::from_center(Point::new(cx + dx, body.center().y), 4.5, 7.0), 2.0, Color::hex(0xE2943B));
+                }
+                c.fill_circle(Point::new(cx, body.center().y + 2.0), 2.0, Color::hex(0x221B19));
             } else {
                 c.text("10:08", body, &clock.color(palette::TEXT));
             }
         }
-        Theme::Pill => {
+        Theme::Pill | Theme::OrenPill | Theme::CorgiPill => {
             let body = Rect::new(cx - 36.0, screen.y + 7.0, 72.0, 20.0);
             c.fill_rrect(body.offset(0.0, 2.0), 10.0, Color::black(0.25));
             c.fill_rrect(body, 10.0, palette::ISLAND);
-            c.text("10:08", body, &clock.color(palette::TEXT));
+            if theme == Theme::OrenPill {
+                for dx in [-6.0, 6.0] {
+                    c.fill_rrect(Rect::from_center(Point::new(cx + dx, body.center().y), 4.0, 6.0), 2.0, palette::ORANGE);
+                }
+            } else if theme == Theme::CorgiPill {
+                for dx in [-7.0, 7.0] {
+                    c.fill_rrect(Rect::from_center(Point::new(cx + dx, body.center().y), 4.0, 6.0), 2.0, Color::hex(0xE2943B));
+                }
+                c.fill_circle(Point::new(cx, body.center().y + 2.0), 1.8, Color::hex(0x221B19));
+            } else {
+                c.text("10:08", body, &clock.color(palette::TEXT));
+            }
         }
     }
     c.unclip();
@@ -1712,7 +1677,7 @@ mod tests {
         assert!(!looks(&st).contains(&"Status"));
         st.settings.theme = Theme::Pill;
         assert!(looks(&st).contains(&"Status"));
-        st.settings.theme = Theme::Oyen;
+        st.settings.theme = Theme::Oren;
         assert!(looks(&st).contains(&"Oyen"));
     }
 

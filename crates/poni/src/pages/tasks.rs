@@ -224,16 +224,35 @@ pub fn draw(ui: &mut Ui, st: &mut AppState, area: Rect) {
         ui.c.unclip();
         anim.rows = rows;
 
+        fn norm_t(s: &str) -> String {
+            s.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(200).collect()
+        }
+
         if let Some(id) = toggle {
+            let task_info = st.store.tasks.tasks.iter().find(|t| t.id == id).map(|t| (t.text.clone(), t.done));
             if st.store.tasks.toggle(id, st.unix) {
                 st.save();
                 anim.toggled = Some((id, now));
                 // Freeze what is on screen now; the rows re-sort once the pointer leaves.
                 anim.frozen = Some((items.iter().map(|(id, _)| *id).collect(), now));
+                if let Some((txt, was_done)) = task_info {
+                    let norm = norm_t(&txt);
+                    if let Some(gt) = st.google_tasks.iter().find(|g| norm_t(&g.title) == norm) {
+                        st.cmd(crate::commands::Command::CompleteGoogleTask {
+                            list_id: gt.list_id.clone(),
+                            task_id: gt.id.clone(),
+                            completed: !was_done,
+                        });
+                    }
+                }
             }
         }
         if let Some(id) = delete {
             if let Some(task) = st.store.tasks.tasks.iter().find(|t| t.id == id).cloned() {
+                let norm = norm_t(&task.text);
+                if let Some(gt) = st.google_tasks.iter().find(|g| norm_t(&g.title) == norm) {
+                    st.cmd(crate::commands::Command::DeleteGoogleTask { list_id: gt.list_id.clone(), task_id: gt.id.clone() });
+                }
                 st.store.tasks.remove(id);
                 st.save();
                 offer_undo(&mut anim, vec![task], now);
@@ -259,15 +278,18 @@ pub fn draw(ui: &mut Ui, st: &mut AppState, area: Rect) {
 /// Add the typed task. Keeps keyboard focus (rapid entry) and scrolls the new
 /// row into view. A full list keeps the text so nothing typed is lost.
 fn submit(ui: &mut Ui, st: &mut AppState, anim: &mut ListAnim, day_start: i64) {
-    if st.ui.task_input.trim().is_empty() {
+    let raw = st.ui.task_input.trim();
+    if raw.is_empty() {
         st.ui.task_input.clear();
         ui.input.caret = 0;
         return;
     }
-    let Some(id) = st.store.tasks.add(&st.ui.task_input, st.unix) else { return };
+    let task_title = raw.to_string();
+    let Some(id) = st.store.tasks.add(&task_title, st.unix) else { return };
     st.ui.task_input.clear();
     ui.input.caret = 0;
     st.save();
+    st.cmd(crate::commands::Command::CreateGoogleTask(task_title));
     anim.appeared.insert(id, st.now);
     // The new row goes to its sorted place, so stop holding the old order.
     anim.frozen = None;
@@ -436,6 +458,15 @@ fn draw_footer(ui: &mut Ui, st: &mut AppState, r: Rect, day_start: i64, full: bo
         text_right = pr.x - 12.0;
         if ui.pill(wid("tasks.clear"), pr, "Clear done", None, PillStyle::Utility).clicked {
             let removed: Vec<Task> = st.store.tasks.tasks.iter().filter(|t| t.done).cloned().collect();
+            for task in &removed {
+                let norm: String = task.text.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(200).collect();
+                if let Some(gt) = st.google_tasks.iter().find(|g| {
+                    let gn: String = g.title.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(200).collect();
+                    gn == norm
+                }) {
+                    st.cmd(crate::commands::Command::DeleteGoogleTask { list_id: gt.list_id.clone(), task_id: gt.id.clone() });
+                }
+            }
             if st.store.tasks.clear_done() > 0 {
                 // The scroll offset is clamped to the shorter list on the next frame.
                 st.save();

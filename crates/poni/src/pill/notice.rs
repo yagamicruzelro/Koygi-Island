@@ -1,4 +1,4 @@
-//! Notices (`Mode::Notice`): a phone paired, money in, a prayer's time,
+﻿//! Notices (`Mode::Notice`): a phone paired, money in, a prayer's time,
 //! a focus session done: an icon disc, a title and a line, and an inline
 //! action pill.
 //!

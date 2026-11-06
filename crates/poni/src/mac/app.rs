@@ -190,12 +190,12 @@ pub fn main_entry() -> i32 {
         std::env::set_var("PONI_HOME", &home);
     }
     crate::plog::init(paths::log_path());
-    pinfo!("Oyenza Studio {} starting on macOS (args: {:?})", env!("CARGO_PKG_VERSION"), &args[1..]);
+    pinfo!("Koygi Island {} starting on macOS (args: {:?})", env!("CARGO_PKG_VERSION"), &args[1..]);
     std::panic::set_hook(Box::new(|info| {
         perror!("panic: {info}");
     }));
     let Some(mtm) = MainThreadMarker::new() else {
-        eprintln!("Oyenza Studio must start on the main thread");
+        eprintln!("Koygi Island must start on the main thread");
         return 2;
     };
     let _lock = match single_instance() {
@@ -366,7 +366,7 @@ pub fn drain_events() {
     });
 }
 
-/// A message from Oyenza Studio Recorder through the island's message port
+/// A message from Koygi Island Recorder through the island's message port
 /// (`services::recorder::listen`), read while the recorder waits for the
 /// reply: true tells it the island shows the recording (or its Record page),
 /// so it keeps its own bar and controls hidden; false, that it should show
@@ -537,6 +537,7 @@ pub struct App {
     usage_watch: services::usage::Watch,
     /// New versions (`crate::updates`); None in the smoke test.
     updater: Option<crate::updates::Updater>,
+    _google: Option<services::google::GoogleService>,
     /// Prayer times' adzan, while it plays.
     adzan: services::adzan::AdzanPlayer,
     motion: Option<MotionStats>,
@@ -571,7 +572,7 @@ pub struct App {
     smoke_notes_stop: Option<(bool, String)>,
     /// The island floated on the last frame (Pill letting go of the notch).
     was_floating: bool,
-    /// The port Oyenza Studio Recorder writes to (`services::recorder`).
+    /// The port Koygi Island Recorder writes to (`services::recorder`).
     rec_port: Option<services::recorder::Port>,
     /// When the island next asks whether the recorder still runs (mono seconds).
     rec_alive_at: f64,
@@ -714,6 +715,7 @@ impl App {
             was_floating: false,
             rec_port: None,
             rec_alive_at: 0.0,
+            _google: None,
         }
     }
 
@@ -739,6 +741,7 @@ impl App {
                 None
             }
         };
+        self._google = Some(services::google::GoogleService::start(self.sink.clone()));
         self.sync_addons();
         // A meeting the app closed on, waiting to be written up.
         if self.st.notes_on() && self.smoke.is_none() {
@@ -746,7 +749,7 @@ impl App {
         }
         self.schedule_update();
         self.fetch_setup();
-        // Oyenza Studio Recorder installed: the Record tab can show (one
+        // Koygi Island Recorder installed: the Record tab can show (one
         // Launch Services question); its port is open either way, for the
         // recorder installed later.
         if self.smoke.is_none() {
@@ -773,11 +776,11 @@ impl App {
         }
         if self.first_run && self.smoke.is_none() {
             let place = if self.screen.notch.is_some() { "Point at the notch to open it" } else { "Point at the island to open it" };
-            self.st.notify(Icon::CheckCircle, self.st.accent, "Oyenza Studio is on", place, 6.0, None);
+            self.st.notify(Icon::CheckCircle, self.st.accent, "Koygi Island is on", place, 6.0, None);
         }
         if self.smoke.is_none() {
             if let Some(dir) = services::trash_app_from_before_rename() {
-                self.st.notify(Icon::Trash, self.st.accent, "Oyen Poni is now Oyenza Studio", format!("The old copy in {dir} is in the Trash"), 8.0, None);
+                self.st.notify(Icon::Trash, self.st.accent, "Oyen Poni is now Koygi Island", format!("The old copy in {dir} is in the Trash"), 8.0, None);
             }
         }
         if self.smoke.is_some() {
@@ -794,7 +797,7 @@ impl App {
         // Downloads under way end with the app (std::process::exit runs no
         // destructors): yt-dlp's groups get their SIGTERM now.
         self.downloader = None;
-        pinfo!("Oyenza Studio exiting with code {code}");
+        pinfo!("Koygi Island exiting with code {code}");
         std::process::exit(code);
     }
 
@@ -1368,7 +1371,7 @@ impl App {
                 pinfo!("start at login: {now:?}");
                 if now == Login::NeedsApproval {
                     services::login::open_settings();
-                    self.st.notify(Icon::Sliders, palette::ORANGE, "Allow Oyenza Studio to start at login", "Turn it on in Login Items", 8.0, None);
+                    self.st.notify(Icon::Sliders, palette::ORANGE, "Allow Koygi Island to start at login", "Turn it on in Login Items", 8.0, None);
                 }
             }
         }
@@ -1565,7 +1568,7 @@ impl App {
             if let Some(dmg) = self.updater.as_ref().and_then(|u| u.downloaded(&self.st)) {
                 services::open(&dmg.to_string_lossy());
                 self.collapse();
-                self.st.notify(Icon::Download, self.st.accent, "Install it by hand this time", "Drag Oyenza Studio to Applications in the window that opened", 10.0, None);
+                self.st.notify(Icon::Download, self.st.accent, "Install it by hand this time", "Drag Koygi Island to Applications in the window that opened", 10.0, None);
                 return;
             }
         }
@@ -1839,6 +1842,18 @@ impl App {
                 self.apply_fullscreen();
             }
             AppEvent::Oyenza(ev) => self.on_oyenza(ev),
+            AppEvent::Discord(state) => {
+                self.st.discord = state;
+                self.request_frame();
+            }
+            AppEvent::GoogleTasks(tasks) => {
+                self.st.google_tasks = tasks;
+                self.request_frame();
+            }
+            AppEvent::GmailUnread(count) => {
+                self.st.gmail_unread = count;
+                self.request_frame();
+            }
         }
         if let Some(before) = media_before {
             self.after_media_change(before, now);
@@ -2662,7 +2677,7 @@ impl App {
         self.request_frame();
     }
 
-    /// Oyenza Studio Recorder's word on its recording, or "show yourself"
+    /// Koygi Island Recorder's word on its recording, or "show yourself"
     /// (`recorder_message`). True when the island takes it: it shows the
     /// recording, or opened on its Record page.
     fn on_recorder_message(&mut self, m: poni_core::recorder::Message) -> bool {
@@ -2975,6 +2990,69 @@ impl App {
                 Command::Usage(c) => self.usage_cmd(c),
                 Command::Ielts(c) => self.ielts_cmd(c),
                 Command::Notes(c) => self.notes_cmd(c),
+                Command::CreateGoogleTask(title) => {
+                    services::google::create_task(title, self.sink.clone());
+                }
+                Command::CompleteGoogleTask { list_id, task_id, completed } => {
+                    for task in &mut self.st.google_tasks {
+                        if task.id == task_id {
+                            task.status = if completed { "completed".into() } else { "needsAction".into() };
+                        }
+                    }
+                    self.request_frame();
+                    services::google::set_task_status(list_id, task_id, completed, self.sink.clone());
+                }
+                Command::DeleteGoogleTask { list_id, task_id } => {
+                    self.st.google_tasks.retain(|t| t.id != task_id);
+                    self.request_frame();
+                    services::google::delete_task(list_id, task_id, self.sink.clone());
+                }
+                Command::ToggleTodayTasks => {
+                    self.st.today_view_tasks = !self.st.today_view_tasks;
+                    self.request_frame();
+                }
+                Command::ToggleShelfScratchpad => {
+                    self.st.shelf_mode_scratchpad = !self.st.shelf_mode_scratchpad;
+                    self.request_frame();
+                }
+                Command::CopyText(text) => {
+                    services::clipboard::set_text(&text);
+                }
+                Command::CreateGoogleEvent(text) => {
+                    services::google::create_quick_event(text, self.sink.clone());
+                    self.st.today_cal_input.clear();
+                    self.st.today_cal_input_open = false;
+                    self.request_frame();
+                }
+                Command::AddScratchpadNote(note) => {
+                    let note = note.trim();
+                    if !note.is_empty() {
+                        if !self.st.scratchpad_text.is_empty() {
+                            self.st.scratchpad_text.push('\n');
+                        }
+                        self.st.scratchpad_text.push_str(note);
+                        let p = crate::paths::data_dir().join("scratchpad.txt");
+                        let _ = std::fs::write(&p, &self.st.scratchpad_text);
+                    }
+                    self.st.scratchpad_input.clear();
+                    self.request_frame();
+                }
+                Command::DeleteScratchpadNote(idx) => {
+                    let mut lines: Vec<&str> = self.st.scratchpad_text.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+                    if idx < lines.len() {
+                        lines.remove(idx);
+                        self.st.scratchpad_text = lines.join("\n");
+                        let p = crate::paths::data_dir().join("scratchpad.txt");
+                        let _ = std::fs::write(&p, &self.st.scratchpad_text);
+                    }
+                    self.request_frame();
+                }
+                Command::ClearScratchpad => {
+                    self.st.scratchpad_text.clear();
+                    let p = crate::paths::data_dir().join("scratchpad.txt");
+                    let _ = std::fs::write(&p, "");
+                    self.request_frame();
+                }
             }
         }
         self.sync_phone_offer();
@@ -4040,7 +4118,7 @@ impl App {
                 self.st.pomodoro.start(self.st.now);
             }
             "notice" => {
-                self.st.notify(Icon::CheckCircle, self.st.accent, "Oyenza Studio is on", "Point at the island to open it", 30.0, None);
+                self.st.notify(Icon::CheckCircle, self.st.accent, "Koygi Island is on", "Point at the island to open it", 30.0, None);
             }
             "volume-hud" => {
                 self.st.notice = None;
@@ -4310,7 +4388,7 @@ impl App {
             // around a notch (one the screen pretends to have; CI's Macs
             // have none), open and resting in the menu bar's line.
             "glass-open" => {
-                self.on_menu(MenuCmd::SetTheme(Theme::Glass));
+                self.on_menu(MenuCmd::SetTheme(Theme::Corgi));
                 self.st.page = PageKind::Today;
                 self.expand();
             }
@@ -4379,16 +4457,16 @@ impl App {
                 }
                 window::fake_notch(Some(Notch::MACBOOK));
                 self.refresh_screen();
-                self.on_menu(MenuCmd::SetTheme(Theme::Oyen));
+                self.on_menu(MenuCmd::SetTheme(Theme::Oren));
                 self.st.page = PageKind::Today;
                 self.expand();
             }
             "notch-glass-open" => {
-                self.on_menu(MenuCmd::SetTheme(Theme::Glass));
+                self.on_menu(MenuCmd::SetTheme(Theme::Corgi));
                 self.st.page = PageKind::Today;
                 self.expand();
             }
-            // Oyenza Studio Recorder's word through the island's message port,
+            // Koygi Island Recorder's word through the island's message port,
             // sent from another process as the recorder sends it
             // (tools/mac-smoke.sh), around a notch: the recording rests in its
             // ears; then its end.
@@ -5143,7 +5221,7 @@ fn smoke_wav_format(path: &std::path::Path) -> Option<(u32, u16, u16, usize, usi
 /// The keychain items tools/mac-smoke.sh adds for the AI tab's reader: their
 /// service, and the passwords of the accounts "plain" and "accent" (an accent
 /// and a line break, which `security` prints as hex). "absent" is never added.
-const SMOKE_KEYCHAIN: (&str, &str, &str) = ("Oyenza Studio smoke", "{\"claudeAiOauth\":{\"accessToken\":\"test-token\"}}", "caf\u{e9}\nnext");
+const SMOKE_KEYCHAIN: (&str, &str, &str) = ("Koygi Island smoke", "{\"claudeAiOauth\":{\"accessToken\":\"test-token\"}}", "caf\u{e9}\nnext");
 
 /// The smoke test of the AI tab's keychain reader (`services::keychain`) on
 /// the items above, with the tab closed, open, then closed with the notices

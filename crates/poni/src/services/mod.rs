@@ -6,8 +6,10 @@ pub mod adzan;
 pub mod applemusic;
 pub mod applemusic_ui;
 pub mod audio;
+pub mod audio_meter;
 pub mod backdrop;
 pub mod bluetooth;
+pub mod discord;
 pub mod clipboard;
 pub mod frames;
 pub mod fullscreen;
@@ -15,6 +17,7 @@ pub mod cities;
 pub mod downloader;
 #[cfg(test)]
 mod downloader_live;
+pub mod google;
 pub mod http;
 pub mod ielts;
 pub mod imaging;
@@ -53,9 +56,12 @@ pub struct Services {
     media: Option<media::MediaService>,
     lyrics: Option<lyrics::LyricsService>,
     _audio: Option<audio::AudioService>,
+    _audio_meter: Option<audio_meter::AudioMeterService>,
+    _discord: Option<discord::DiscordService>,
     _bluetooth: Option<bluetooth::BluetoothService>,
     fullscreen: Option<fullscreen::FullscreenWatcher>,
     oyenza: Option<oyenza::OyenzaService>,
+    google: Option<google::GoogleService>,
     pairdrop: Option<pairdrop::PairDropService>,
     addons: Option<addons::AddonService>,
     /// Started the first time the Stocks page opens ([`Services::stocks_watch`]).
@@ -86,10 +92,13 @@ impl Services {
         let media = started("media", media::MediaService::start(sink.clone()));
         let lyrics = started("lyrics", lyrics::LyricsService::start(sink.clone()));
         let audio = started("audio", audio::AudioService::start(sink.clone()));
+        let audio_meter = started("audio meter", audio_meter::AudioMeterService::start());
+        let discord = started("discord", discord::DiscordService::start(sink.clone()));
         let bluetooth = started("bluetooth", bluetooth::BluetoothService::start(sink.clone()));
         let fullscreen = started("fullscreen", fullscreen::FullscreenWatcher::start(helper, sink.clone()));
-        // Idle (no calls) until the person signs in to Oyenza from the tray.
-        let oyenza = started("oyenza", oyenza::OyenzaService::start(sink.clone(), activity));
+        // Oyenza service disabled: keuangan / oyenza tab removed
+        let oyenza = None;
+        let google = started("google", google::GoogleService::start(sink.clone()));
         // Asks nothing until a phone is paired.
         let pairdrop = started("pair drop", pairdrop::PairDropService::start(sink.clone()));
         // Asleep unless an add-on is on; then it only checks the files it has.
@@ -104,7 +113,7 @@ impl Services {
             .map(|a| a.id)
             .collect();
         let addons = started("add-ons", addons::AddonService::start(sink.clone(), on));
-        Self { media, lyrics, _audio: audio, _bluetooth: bluetooth, fullscreen, oyenza, pairdrop, addons, stocks: std::cell::OnceCell::new(), usage: std::cell::OnceCell::new(), downloader: std::cell::OnceCell::new(), sink: sink.clone() }
+        Self { media, lyrics, _audio: audio, _audio_meter: audio_meter, _discord: discord, _bluetooth: bluetooth, fullscreen, oyenza, google, pairdrop, addons, stocks: std::cell::OnceCell::new(), usage: std::cell::OnceCell::new(), downloader: std::cell::OnceCell::new(), sink: sink.clone() }
     }
 
     pub fn stop(self, _helper: HWND) {

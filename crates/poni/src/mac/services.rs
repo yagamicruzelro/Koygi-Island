@@ -46,6 +46,8 @@ pub mod smc;
 pub mod applemusic;
 #[path = "../services/lyrics.rs"]
 pub mod lyrics;
+#[path = "../services/google.rs"]
+pub mod google;
 // So is the add-ons' downloader: the Mac offers every add-on with it.
 #[path = "../services/addons.rs"]
 pub mod addons;

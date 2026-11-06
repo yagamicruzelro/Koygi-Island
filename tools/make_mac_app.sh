@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build "Oyenza Studio.app" and its DMG from Poni's Mac binaries. Runs on a Mac (lipo, codesign, hdiutil).
+# Build "Koygi Island.app" and its DMG from Poni's Mac binaries. Runs on a Mac (lipo, codesign, hdiutil).
 #
 #   tools/make_mac_app.sh <arm64 binary> <x86_64 binary | -> <OyenzaStudio.icns | -> <out dir>
 #
@@ -14,7 +14,7 @@ version="$(cargo metadata --no-deps --format-version 1 --manifest-path "$root/Ca
   | python3 -c 'import sys, json; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"] == "poni"))')"
 
 mkdir -p "$out"
-app="$out/Oyenza Studio.app"
+app="$out/Koygi Island.app"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 
@@ -50,7 +50,7 @@ codesign --force --deep --sign - "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
 
 # The DMG: the installer window, with the test build's note on Open Anyway.
-dmg="$out/Oyenza-Studio-$version-mac-unsigned.dmg"
+dmg="$out/Koygi-Island-$version-mac-unsigned.dmg"
 bash "$root/tools/make_mac_dmg.sh" "$app" "$dmg" test
 shasum -a 256 "$dmg"
 echo "built $dmg"

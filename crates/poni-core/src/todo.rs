@@ -70,7 +70,7 @@ impl TaskList {
 
     /// Tasks completed at or after `day_start_unix`.
     pub fn done_since(&self, day_start_unix: i64) -> usize {
-        self.tasks.iter().filter(|t| t.done && t.done_unix.is_some_and(|d| d >= day_start_unix)).count()
+        self.tasks.iter().filter(|t| t.done && (t.done_unix.is_none() || t.done_unix.is_some_and(|d| d >= day_start_unix))).count()
     }
 
     /// "done today / (open + done today)" — e.g. 1/3.
@@ -85,7 +85,7 @@ impl TaskList {
         let mut done: Vec<&Task> = self
             .tasks
             .iter()
-            .filter(|t| t.done && t.done_unix.is_some_and(|d| d >= day_start_unix))
+            .filter(|t| t.done && (t.done_unix.is_none() || t.done_unix.is_some_and(|d| d >= day_start_unix)))
             .collect();
         open.sort_by_key(|t| (t.created_unix, t.id));
         done.sort_by_key(|t| std::cmp::Reverse(t.done_unix));

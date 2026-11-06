@@ -7,10 +7,11 @@
 //!
 //! Pages mutate `AppState` directly for local state and push
 //! [`crate::commands::Command`]s for side effects (media control, opening
-//! files, saving, …).
+//! files, saving, â€¦).
 
 pub mod addons;
 pub mod card;
+pub mod discord;
 pub mod downloads;
 pub mod downloads_offer;
 pub mod focus;
@@ -57,6 +58,7 @@ pub fn header_rect(body: Rect) -> Rect {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PageKind {
     Media,
+    Discord,
     Today,
     Shelf,
     Tasks,
@@ -104,8 +106,9 @@ pub enum PageKind {
 impl PageKind {
     /// The tab row's order: the island's own pages, Oyenza, then the
     /// add-ons' pages and the "+".
-    pub const ALL: [PageKind; 19] = [
+    pub const ALL: [PageKind; 20] = [
         PageKind::Media,
+        PageKind::Discord,
         PageKind::Today,
         PageKind::Shelf,
         PageKind::Tasks,
@@ -129,6 +132,7 @@ impl PageKind {
     pub fn key(self) -> &'static str {
         match self {
             PageKind::Media => "media",
+            PageKind::Discord => "discord",
             PageKind::Focus => "focus",
             PageKind::Ai => "ai",
             PageKind::Health => "health",
@@ -159,6 +163,7 @@ impl PageKind {
     pub fn title(self) -> &'static str {
         match self {
             PageKind::Media => "Music",
+            PageKind::Discord => "Discord",
             PageKind::Focus => "Focus",
             PageKind::Ai => "AI",
             PageKind::Health => "Health",
@@ -183,6 +188,7 @@ impl PageKind {
     pub fn icon(self) -> Icon {
         match self {
             PageKind::Media => Icon::Music,
+            PageKind::Discord => Icon::Mic,
             PageKind::Focus => Icon::Timer,
             PageKind::Ai => Icon::Ai,
             PageKind::Health => Icon::Steps,
@@ -265,12 +271,17 @@ fn row(st: &AppState, open: Option<PageKind>) -> Vec<PageKind> {
     PageKind::ALL
         .into_iter()
         .filter(|&p| match p {
+            PageKind::Discord => st.discord.in_voice,
+            PageKind::Ai => false,
+            PageKind::Oyenza => false,
+            PageKind::Addons => false,
+            PageKind::Notes => true,
+            PageKind::Tasks => true,
             PageKind::Health => st.health_on(),
             PageKind::Ielts => st.ielts_on(),
-            PageKind::Notes => st.notes_on(),
             PageKind::System => st.system_on(),
             PageKind::Prayer => st.prayer_on(),
-            PageKind::Script => st.script_on(),
+            PageKind::Script => false,
             PageKind::Stocks => st.stocks_on(),
             PageKind::Downloads => st.downloader_on(),
             PageKind::Record => st.record_on(),
@@ -292,6 +303,7 @@ pub fn step_tab(p: PageKind, st: &AppState, forward: bool) -> PageKind {
 pub fn content_height(p: PageKind, st: &AppState) -> f32 {
     match p {
         PageKind::Media => media::height(st),
+        PageKind::Discord => discord::height(st),
         PageKind::Focus => focus::height(st),
         PageKind::Ai => usage::height(st),
         PageKind::Health => health::height(st),
@@ -319,6 +331,7 @@ pub fn content_height(p: PageKind, st: &AppState) -> f32 {
 /// repaint.
 pub fn next_wake(page: PageKind, st: &AppState) -> Option<f64> {
     let wake = match page {
+        PageKind::Discord => discord::next_wake(st),
         PageKind::Tasks => tasks::next_wake(st),
         PageKind::Shelf => shelf::next_wake(st),
         PageKind::Oyenza => oyenza::next_wake(st),
@@ -373,9 +386,7 @@ pub fn draw_expanded(ui: &mut Ui, st: &mut AppState, body: Rect, page: PageKind,
     let tip = draw_header(ui, st, header, page, tr);
     draw_pages(ui, st, body, header, page, tr);
     // Hover labels sit on top of the page, outside the content clip.
-    if let Some(tip) = tip {
-        draw_tip(ui, header, &tip);
-    }
+    let _ = tip;
 }
 
 /// The page content's rect inside the expanded island `body`: below the
@@ -433,6 +444,7 @@ pub(crate) fn draw_pages(ui: &mut Ui, st: &mut AppState, body: Rect, header: Rec
 pub(crate) fn draw_page(ui: &mut Ui, st: &mut AppState, area: Rect, page: PageKind) {
     match page {
         PageKind::Media => media::draw(ui, st, area),
+        PageKind::Discord => discord::draw(ui, st, area),
         PageKind::Focus => focus::draw(ui, st, area),
         PageKind::Ai => usage::draw(ui, st, area),
         PageKind::Health => health::draw(ui, st, area),
@@ -595,12 +607,40 @@ pub(crate) fn draw_header(ui: &mut Ui, st: &mut AppState, r: Rect, page: PageKin
     // Right side: the clock ends on the content column's right edge (where
     // every page's trailing control ends). Today already shows the date
     // large, so the header leaves it out there.
-    let right = r.right() - 6.0;
+    let right = r.right() - 14.0;
     let time = fmt_clock(&st.local, st.settings.use_24h);
     let time_st = TextStyle::body().weight(Weight::Semibold).tabular().right();
     let tw = ui.c.measure(&time, &time_st, 200.0).0;
-    ui.c.text(&time, Rect::new(right - tw - 4.0, r.y, tw + 4.0, r.h), &time_st);
-    let mut left = right - tw;
+    ui.c.text(&time, Rect::new(right - tw - 2.0, r.y, tw + 2.0, r.h), &time_st);
+    let mut left = right - tw - 4.0;
+
+    let has_mascot = crate::oyen::on(st.settings.theme) || crate::corgi::on(st.settings.theme);
+    let mascot_cx = if has_mascot { left - 6.0 - OYEN_W / 2.0 } else { left };
+    if has_mascot && mascot_cx - OYEN_W / 2.0 > tabs_end + 12.0 {
+        left = mascot_cx - OYEN_W / 2.0;
+        let is_playing = st.media.as_ref().is_some_and(|m| m.is_playing());
+        let look = ui.input.mouse.map(|p| ((p.x - r.center().x) / (r.w / 2.0)).clamp(-1.0, 1.0));
+        if crate::oyen::on(st.settings.theme) {
+            let (frame, moving) = if is_playing {
+                (crate::oyen::music(st.now, true, None), true)
+            } else {
+                crate::oyen::rest(st.now, st.local.hour < 5, look)
+            };
+            if moving || look.is_some() || is_playing {
+                ui.request_anim();
+            }
+            crate::oyen::peek(ui.c, &frame, mascot_cx, cy + 9.0, OYEN_W, r.y);
+        } else if crate::corgi::on(st.settings.theme) {
+            if is_playing || look.is_some() {
+                ui.request_anim();
+            }
+            if is_playing {
+                crate::corgi::music_peek(ui.c, mascot_cx, cy + 9.0, OYEN_W, r.y, ui.now, true);
+            } else {
+                crate::corgi::rest_peek(ui.c, mascot_cx, cy + 9.0, OYEN_W, r.y, ui.now, st.local.hour < 5, look);
+            }
+        }
+    }
 
     let shows_date = |p: PageKind| if p == PageKind::Today { 0.0 } else { 1.0 };
     let date_k = lerp(shows_date(from), shows_date(page), e);
@@ -616,16 +656,6 @@ pub(crate) fn draw_header(ui: &mut Ui, st: &mut AppState, r: Rect, page: PageKin
 
     let gear_r = Rect::new(snap(left - PIN_GAP - GEAR, scale), cy - GEAR / 2.0, GEAR, GEAR);
     let pin_r = Rect::new(snap(gear_r.x - GEAR_GAP - PIN, scale), cy - PIN / 2.0, PIN, PIN);
-    let oyen_cx = pin_r.x - OYEN_GAP - OYEN_W / 2.0;
-    if crate::oyen::on(st.settings.theme) && oyen_cx - OYEN_W / 2.0 > tabs_end + 12.0 {
-        // Eyes on the cursor while it is over the island; asleep at night.
-        let look = ui.input.mouse.map(|p| ((p.x - r.center().x) / (r.w / 2.0)).clamp(-1.0, 1.0));
-        let (frame, moving) = crate::oyen::rest(st.now, st.local.hour < 5, look);
-        if moving {
-            ui.request_anim();
-        }
-        crate::oyen::peek(ui.c, &frame, oyen_cx, cy + 9.0, OYEN_W, r.y);
-    }
     if pin_r.x > tabs_end + 8.0 {
         let pinned = st.pinned;
         let (icon, color) = if pinned { (Icon::PinFill, st.accent) } else { (Icon::Pin, palette::TEXT_FAINT) };
@@ -691,7 +721,12 @@ pub(crate) fn draw_header(ui: &mut Ui, st: &mut AppState, r: Rect, page: PageKin
 /// whether the tab is picked or not (`oyen::tab`). His eyes follow the pointer
 /// while it is over the tab `row`.
 fn draw_oyen_tab(ui: &mut Ui, st: &AppState, row: Rect, tab: Rect) {
-    let c = Point::new(tab.x + TAB_W / 2.0, row.center().y);
+    let mut c = Point::new(tab.x + TAB_W / 2.0, row.center().y);
+    let playing = st.media.as_ref().is_some_and(|m| m.is_playing());
+    if playing {
+        c.y += ((ui.now * 6.0).sin() as f32 * 1.5).max(-1.5);
+        ui.request_anim();
+    }
     let look = ui.input.mouse.filter(|m| row.contains(*m)).map(|m| ((m.x - c.x) / (row.w / 2.0)).clamp(-1.0, 1.0));
     let clip = Rect::new(tab.x, tab.y, TAB_W, tab.h);
     if crate::oyen::tab(ui.c, c, OYEN_TAB_W, clip, ui.now, st.ui.oyen_tab, crate::activities::night(st), look) {
@@ -761,7 +796,7 @@ mod tests {
         use PageKind::*;
         let mut st = state();
         assert_eq!(tabs(&st), [Media, Today, Shelf, Tasks, Focus, Ai, Oyenza, Addons]);
-        st.oyenza.link = OyenzaLink::Connected { account: "a•••@example.com".into() };
+        st.oyenza.link = OyenzaLink::Connected { account: "aâ€¢â€¢â€¢@example.com".into() };
         assert_eq!(tabs(&st), [Media, Today, Shelf, Tasks, Focus, Ai, Oyenza, Addons]);
         // The add-ons' pages come after Oyenza (Health, Oyenza's steps, first), before the "+".
         for id in ["system", "script", "health"] {
@@ -806,7 +841,7 @@ mod tests {
         let mut st = state();
         assert!(!tabs(&st).contains(&PageKind::Settings));
         assert!(tabs(&st).contains(&PageKind::Oyenza), "signed out it's where to sign in");
-        st.oyenza.link = OyenzaLink::Connected { account: "a•••@example.com".into() };
+        st.oyenza.link = OyenzaLink::Connected { account: "aâ€¢â€¢â€¢@example.com".into() };
         let row = tabs(&st);
         assert!(row.contains(&PageKind::Oyenza) && !row.contains(&PageKind::Settings));
         // Stepping through the tabs never lands on Settings.
@@ -827,7 +862,7 @@ mod tests {
     fn addons_is_the_last_tab_and_never_makes_the_window_taller() {
         let mut st = state();
         assert_eq!(tabs(&st).last(), Some(&PageKind::Addons));
-        st.oyenza.link = OyenzaLink::Connected { account: "a•••@example.com".into() };
+        st.oyenza.link = OyenzaLink::Connected { account: "aâ€¢â€¢â€¢@example.com".into() };
         assert_eq!(tabs(&st).last(), Some(&PageKind::Addons));
         assert_eq!(PageKind::from_key("addons"), PageKind::Addons);
         // The window is as tall as the tallest page (System, laid out for
@@ -905,7 +940,7 @@ mod tests {
             st.settings.set_addon(addon.id, true);
             st.addons.insert(addon.id, poni_core::addons::Status::Ready);
             assert!(!tabs(&st).contains(&page), "{}: signed out", addon.id);
-            st.oyenza.link = OyenzaLink::Connected { account: "a•••@example.com".into() };
+            st.oyenza.link = OyenzaLink::Connected { account: "aâ€¢â€¢â€¢@example.com".into() };
             assert!(!tabs(&st).contains(&page), "{}: before the server's answer", addon.id);
             st.oyenza.pro = Some(false);
             assert!(!tabs(&st).contains(&page), "{}: an account without Pro", addon.id);
@@ -928,7 +963,7 @@ mod tests {
         let mut st = state();
         // Signed out: the sign-in card, so no stats are read for tiles.
         assert!(!today::shows_tiles(&st));
-        st.oyenza.link = OyenzaLink::Connected { account: "a•••@example.com".into() };
+        st.oyenza.link = OyenzaLink::Connected { account: "aâ€¢â€¢â€¢@example.com".into() };
         assert!(!today::shows_tiles(&st), "getting the day");
         st.oyenza.agenda_state = AgendaState::Unavailable;
         assert!(today::shows_tiles(&st));
@@ -966,7 +1001,7 @@ mod tests {
         // Signed out it shows the sign-in card; signed in, every state is as
         // tall, and never taller than System: the window keeps its size.
         let signed_out = content_height(Ielts, &st);
-        st.oyenza.link = OyenzaLink::Connected { account: "a•••@example.com".into() };
+        st.oyenza.link = OyenzaLink::Connected { account: "aâ€¢â€¢â€¢@example.com".into() };
         let h = content_height(Ielts, &st);
         assert!(signed_out < h && h <= content_height(PageKind::System, &st), "{signed_out} {h}");
         for s in [poni_core::ielts::Sample::Talking, poni_core::ielts::Sample::Result, poni_core::ielts::Sample::MicDenied] {

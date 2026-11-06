@@ -63,7 +63,7 @@ pub fn phone_inbox_dir() -> PathBuf {
     }
     let downloads = downloads_dir().unwrap_or_else(|| env_dir("USERPROFILE").join("Downloads"));
     let before_rename = downloads.join("Oyen Poni");
-    if before_rename.is_dir() { before_rename } else { downloads.join("Oyenza Studio") }
+    if before_rename.is_dir() { before_rename } else { downloads.join("Koygi Island") }
 }
 
 /// Where the Downloader saves videos and sound: the user's Downloads folder
@@ -125,7 +125,7 @@ pub fn notes_dir() -> PathBuf {
         return h.join("notes-saved");
     }
     let docs = known_folder(&windows::Win32::UI::Shell::FOLDERID_Documents).unwrap_or_else(|| env_dir("USERPROFILE").join("Documents"));
-    docs.join("Oyenza Studio").join("Notes")
+    docs.join("Koygi Island").join("Notes")
 }
 
 /// Paired phones (their pairing secrets and names), sealed with DPAPI.

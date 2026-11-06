@@ -7,24 +7,41 @@ use poni_core::settings::{IdleStyle, Settings, Theme};
 use windows::core::{Result, PCWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::UI::Shell::{Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NOTIFYICONDATAW};
+use windows::Win32::UI::Shell::{Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_MODIFY, NIM_DELETE, NOTIFYICONDATAW};
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 pub struct Tray {
     hwnd: HWND,
 }
 
+const CORGI_ICON_PNG: &[u8] = include_bytes!("../res/corgi_transparent.png");
+
+fn create_corgi_tray_icon(cx: i32, cy: i32) -> Option<HICON> {
+    unsafe {
+        CreateIconFromResourceEx(
+            CORGI_ICON_PNG,
+            true,
+            0x00030000,
+            cx,
+            cy,
+            LR_DEFAULTCOLOR,
+        ).ok()
+    }
+}
+
 impl Tray {
     pub fn add(hwnd: HWND) -> Result<Tray> {
         unsafe {
-            let hinst = GetModuleHandleW(None)?;
-            // Ask for the small-icon size so Windows picks poni.ico's own 16-24 px
-            // frames; LoadIconW gives the 32 px one and shrinks it (blurry).
+            let hinst = GetModuleHandleW(None).ok();
             let (cx, cy) = (GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON));
-            let icon = LoadImageW(hinst, PCWSTR(1 as _), IMAGE_ICON, cx, cy, LR_DEFAULTCOLOR)
-                .map(|h| HICON(h.0))
-                .or_else(|_| LoadIconW(hinst, PCWSTR(1 as _)))
-                .or_else(|_| LoadIconW(None, IDI_APPLICATION))?;
+            let icon = create_corgi_tray_icon(cx, cy)
+                .or_else(|| {
+                    let h = hinst?;
+                    LoadImageW(h, PCWSTR(1 as _), IMAGE_ICON, cx, cy, LR_DEFAULTCOLOR).ok().map(|p| HICON(p.0))
+                })
+                .or_else(|| LoadIconW(None, IDI_APPLICATION).ok())
+                .ok_or_else(|| windows::core::Error::from_win32())?;
+
             let mut nid = NOTIFYICONDATAW {
                 cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
                 hWnd: hwnd,
@@ -34,10 +51,12 @@ impl Tray {
                 hIcon: icon,
                 ..Default::default()
             };
-            let tip: Vec<u16> = format!("Oyenza Studio {}", crate::version::VERSION).encode_utf16().collect();
-            nid.szTip[..tip.len()].copy_from_slice(&tip);
+            let tip: Vec<u16> = "Koygi".encode_utf16().chain(Some(0)).collect();
+            let copy_len = tip.len().min(nid.szTip.len());
+            nid.szTip[..copy_len].copy_from_slice(&tip[..copy_len]);
             if !Shell_NotifyIconW(NIM_ADD, &nid).as_bool() {
-                return Err(windows::core::Error::from_win32());
+                // If it already existed from previous run, update it with NIM_MODIFY
+                let _ = Shell_NotifyIconW(NIM_MODIFY, &nid);
             }
         }
         Ok(Tray { hwnd })
@@ -87,7 +106,7 @@ pub enum MenuCmd {
     OyenzaOpen,
     ToggleOyenzaAmounts,
     RecordScreen,
-    /// "Update to Oyenza Studio 0.2.5…" (`crate::updates`).
+    /// "Update Dynamic Island 0.2.5…" (`crate::updates`).
     Update,
     /// "Check for updates…": read the update file now (`crate::updates`).
     CheckForUpdates,
@@ -110,7 +129,8 @@ fn item(label: &str, cmd: MenuCmd, checked: bool) -> MenuItem {
 fn idle_label(s: IdleStyle, theme: Theme) -> &'static str {
     match s {
         IdleStyle::Clock => "Clock",
-        IdleStyle::Eyes if theme == Theme::Oyen => "Oyen",
+        IdleStyle::Eyes if crate::oyen::on(theme) => "Oren",
+        IdleStyle::Eyes if crate::corgi::on(theme) => "Corgi",
         IdleStyle::Eyes => "Eyes",
         IdleStyle::Minimal => "Minimal",
         IdleStyle::Hidden => "Hidden until hover",
@@ -120,7 +140,7 @@ fn idle_label(s: IdleStyle, theme: Theme) -> &'static str {
 
 /// `update`: a later version the update file offers, or Check for updates…
 /// (`crate::updates::menu_line`).
-pub fn menu_items(s: &Settings, pinned: bool, oyenza: &OyenzaLink, recorder: bool, update: UpdateLine) -> Vec<MenuItem> {
+pub fn menu_items(s: &Settings, pinned: bool, _oyenza: &OyenzaLink, recorder: bool, update: UpdateLine) -> Vec<MenuItem> {
     // The look the theme draws is the one checked: outside Pill, Status shows the clock.
     let shown = crate::pill::status::shown(s.theme, s.idle_style);
     let style = |st: IdleStyle| item(idle_label(st, s.theme), MenuCmd::ToggleIdleStyle(st), shown == st);
@@ -130,7 +150,7 @@ pub fn menu_items(s: &Settings, pinned: bool, oyenza: &OyenzaLink, recorder: boo
         item("Advanced settings…", MenuCmd::ShowSettings, false),
         MenuItem::Separator,
         item("Keep island open", MenuCmd::TogglePinned, pinned),
-        MenuItem::Sub { label: "Theme".into(), items: vec![theme("Classic", Theme::Classic), theme("Oyen", Theme::Oyen), theme("Glass", Theme::Glass), theme("Pill", Theme::Pill)] },
+        MenuItem::Sub { label: "Theme".into(), items: vec![theme("Classic", Theme::Classic), theme("Oren", Theme::Oren), theme("Corgi", Theme::Corgi), theme("Pill", Theme::Pill), theme("Oren Pill", Theme::OrenPill), theme("Corgi Pill", Theme::CorgiPill)] },
         // The status bar is listed only in Pill, as on the Settings page: the
         // other themes would draw the clock for it.
         MenuItem::Sub { label: "Idle look".into(), items: crate::pill::status::looks(s.theme).iter().map(|l| style(*l)).collect() },
@@ -138,7 +158,7 @@ pub fn menu_items(s: &Settings, pinned: bool, oyenza: &OyenzaLink, recorder: boo
         item("Synced lyrics", MenuCmd::ToggleLyrics, s.lyrics),
         item("Lyrics pronunciation (romaji, pinyin, Korean)", MenuCmd::TogglePronunciation, s.lyrics_pronunciation),
         apple_music_menu(),
-        oyenza_menu(s, oyenza),
+        // oyenza_menu removed
         item("Sounds", MenuCmd::ToggleSounds, s.sounds),
         MenuItem::Sub {
             label: "In full-screen apps".into(),
@@ -159,7 +179,7 @@ pub fn menu_items(s: &Settings, pinned: bool, oyenza: &OyenzaLink, recorder: boo
         // Which version and build this is, as the Mac menu says it.
         item(&crate::version::about_label(), MenuCmd::About, false),
         MenuItem::Separator,
-        item("Quit Oyenza Studio", MenuCmd::Quit, false),
+        item("Quit Koygi Island", MenuCmd::Quit, false),
     ];
     // Only once the island was dragged off the middle: the way back, under Keep island open.
     if s.island_x.is_some() {
@@ -179,7 +199,7 @@ pub fn menu_items(s: &Settings, pinned: bool, oyenza: &OyenzaLink, recorder: boo
     match update {
         // A new version first, until it is installed.
         UpdateLine::Offer(v) => {
-            items.splice(0..0, [item(&format!("Update to Oyenza Studio {v}…"), MenuCmd::Update, false), MenuItem::Separator]);
+            items.splice(0..0, [item(&format!("Update Dynamic Island {v}…"), MenuCmd::Update, false), MenuItem::Separator]);
         }
         // Otherwise a look on request, under the version line.
         UpdateLine::Check => {
@@ -308,7 +328,7 @@ mod tests {
             .collect();
         let at = |cmd: MenuCmd| labels.iter().position(|l| l.1 == cmd);
         let about = at(MenuCmd::About).expect("no About line");
-        assert!(labels[about].0.starts_with(&format!("About Oyenza Studio {}", env!("CARGO_PKG_VERSION"))), "{}", labels[about].0);
+        assert!(labels[about].0.starts_with(&format!("About Dynamic Island {}", env!("CARGO_PKG_VERSION"))), "{}", labels[about].0);
         // Right above Quit, with the lyrics credit kept above it.
         assert_eq!(at(MenuCmd::Quit), Some(about + 1));
         assert_eq!(at(MenuCmd::LyricsCredit), Some(about - 1));
@@ -321,7 +341,7 @@ mod tests {
             Some(MenuItem::Item { label, cmd, .. }) => Some((label, cmd)),
             _ => None,
         };
-        assert_eq!(first(UpdateLine::Offer("0.2.5".into())), Some(("Update to Oyenza Studio 0.2.5…".to_string(), MenuCmd::Update)));
+        assert_eq!(first(UpdateLine::Offer("0.2.5".into())), Some(("Update Dynamic Island 0.2.5…".to_string(), MenuCmd::Update)));
         assert_eq!(first(UpdateLine::None).map(|(_, cmd)| cmd), Some(MenuCmd::RecordScreen));
         assert_eq!(first(UpdateLine::Check).map(|(_, cmd)| cmd), Some(MenuCmd::RecordScreen));
     }
@@ -407,7 +427,7 @@ mod tests {
         assert_eq!(idle_choices(&pill).last(), Some(&("Status bar".to_string(), true)));
         // Another theme draws the clock for the status bar: Clock is checked,
         // and Status comes back with Pill.
-        for theme in [Theme::Classic, Theme::Oyen, Theme::Glass] {
+        for theme in [Theme::Classic, Theme::Oren, Theme::Corgi] {
             let s = Settings { theme, ..pill.clone() };
             let choices = idle_choices(&s);
             assert_eq!(choices.len(), 4, "{theme:?}");

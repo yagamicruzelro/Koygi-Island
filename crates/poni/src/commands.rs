@@ -204,6 +204,16 @@ pub enum Command {
     Play(Sound),
     /// Open a URL in the default browser.
     OpenUrl(String),
+    CompleteGoogleTask { list_id: String, task_id: String, completed: bool },
+    DeleteGoogleTask { list_id: String, task_id: String },
+    CreateGoogleTask(String),
+    ToggleTodayTasks,
+    ToggleShelfScratchpad,
+    CopyText(String),
+    CreateGoogleEvent(String),
+    AddScratchpadNote(String),
+    DeleteScratchpadNote(usize),
+    ClearScratchpad,
     /// Update to the version the update file offers: install it (Windows,
     /// once its Setup is downloaded), or its release page or DMG.
     Update,

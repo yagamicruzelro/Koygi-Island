@@ -11,9 +11,9 @@
 Target amd64-unicode
 SetCompressor /SOLID lzma
 
-!define APPNAME "Oyenza Studio"
+!define APPNAME "Koygi Island"
 !define VERSION "0.2.25"
-!define PUBLISHER "Jatevo Labs"
+!define PUBLISHER "Ryo"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Poni"
 !define RUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
 
@@ -25,7 +25,7 @@ SetCompressor /SOLID lzma
 !endif
 
 Name "${APPNAME}"
-OutFile "${OUTDIR}/Oyenza-Studio-Setup-${VERSION}.exe"
+OutFile "${OUTDIR}/Koygi-Island-Setup-${VERSION}.exe"
 RequestExecutionLevel user
 InstallDir "$LOCALAPPDATA\Programs\Poni"
 InstallDirRegKey HKCU "Software\Poni" "InstallDir"

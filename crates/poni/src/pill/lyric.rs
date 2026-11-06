@@ -1,4 +1,4 @@
-//! The line being sung, for the collapsed music pill: which synced lyric
+﻿//! The line being sung, for the collapsed music pill: which synced lyric
 //! line is current, when the next one starts (a one-shot wake, never a
 //! poll), and drawing it with a short cross-fade when it changes.
 //! [`super::media`] calls [`draw`] where the title would go and falls back
@@ -149,7 +149,7 @@ fn followed(st: &AppState) -> Option<&Lyrics> {
 
 /// How [`draw`] sets the line (its colour aside), for sizing the pill to it.
 pub fn style() -> TextStyle {
-    TextStyle::body().weight(Weight::Semibold)
+    TextStyle::new(12.2).weight(Weight::Semibold)
 }
 
 /// How [`draw`] sets a reading (its colour aside): the Music page's, at the

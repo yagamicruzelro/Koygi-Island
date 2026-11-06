@@ -111,6 +111,9 @@ pub enum AppEvent {
     /// Master volume changed (0..=1). `switched`: the output device changed
     /// (headphones connected, say), not its volume.
     Volume { level: f32, muted: bool, switched: bool },
+    Discord(crate::state::DiscordVoiceState),
+    GoogleTasks(Vec<crate::services::google::GoogleTaskItem>),
+    GmailUnread(usize),
     Power(PowerState),
     Bluetooth { name: String, connected: bool, battery: Option<u8>, audio: bool },
     /// A full-screen app took over (or left) the island's screen.

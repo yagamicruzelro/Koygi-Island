@@ -55,6 +55,19 @@ impl MediaSession {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct DiscordVoiceState {
+    pub in_voice: bool,
+    pub server: String,
+    pub channel: String,
+    pub guild_id: String,
+    pub channel_id: String,
+    pub is_speaking: bool,
+    pub is_muted: bool,
+    pub is_deafened: bool,
+    pub mic_peak: f32,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum LyricsStatus {
     Idle,
@@ -324,6 +337,8 @@ pub struct PageUiState {
     pub task_input: String,
     pub task_scroll: f32,
     pub shelf_scroll: f32,
+    pub notes_scroll: f32,
+    pub notes_copied: Option<(usize, f64)>,
     /// The Today page's list: how far it's scrolled (DIPs), the date clicked
     /// in its grid (days since 1970-01-01), and when it was last drawn (mono
     /// time; a page drawn again after a while starts at today).
@@ -332,6 +347,9 @@ pub struct PageUiState {
     /// The next draw scrolls the list to `today_pick` (or back to today).
     pub today_jump: bool,
     pub today_drawn: f64,
+    pub today_show_tiles: bool,
+    /// Direct Google account input on the Today page.
+    pub today_google_input: String,
     /// Smoothly animated lyric scroll position (line index as float).
     pub lyric_pos: f32,
     pub lyric_track: String,
@@ -768,6 +786,7 @@ pub struct AppState {
     pub media: Option<MediaSession>,
     pub lyrics: LyricsState,
     pub pomodoro: Pomodoro,
+    pub discord: DiscordVoiceState,
     pub volume: VolumeState,
     pub power: PowerState,
     pub hud: Option<Hud>,
@@ -846,6 +865,14 @@ pub struct AppState {
     pub notes: poni_core::notes::Taker,
     /// Side effects requested during the frame.
     pub cmds: Vec<Command>,
+    pub google_tasks: Vec<crate::services::google::GoogleTaskItem>,
+    pub gmail_unread: usize,
+    pub today_view_tasks: bool,
+    pub shelf_mode_scratchpad: bool,
+    pub scratchpad_text: String,
+    pub scratchpad_input: String,
+    pub today_cal_input_open: bool,
+    pub today_cal_input: String,
 }
 
 impl AppState {
@@ -889,6 +916,7 @@ impl AppState {
             media: None,
             lyrics: LyricsState::default(),
             pomodoro,
+            discord: DiscordVoiceState::default(),
             volume: VolumeState::default(),
             power: PowerState::default(),
             hud: None,
@@ -927,6 +955,14 @@ impl AppState {
             ielts: Default::default(),
             notes: Default::default(),
             cmds: Vec::new(),
+            google_tasks: Vec::new(),
+            gmail_unread: 0,
+            today_view_tasks: false,
+            shelf_mode_scratchpad: false,
+            scratchpad_text: crate::paths::data_dir().join("scratchpad.txt").to_str().and_then(|p| std::fs::read_to_string(p).ok()).unwrap_or_default(),
+            scratchpad_input: String::new(),
+            today_cal_input_open: false,
+            today_cal_input: String::new(),
         };
         // A list from a hand-edited file keeps to codes, each once, ten at most.
         st.store.stocks.tidy();
@@ -1221,7 +1257,7 @@ impl AppState {
     /// Accent for media UI: art colour when available, else the system accent.
     /// The Oyen theme keeps to Oyen's orange.
     pub fn media_accent(&self) -> Color {
-        if self.settings.theme == poni_core::settings::Theme::Oyen {
+        if self.settings.theme == poni_core::settings::Theme::Oren {
             return self.accent;
         }
         self.media.as_ref().and_then(|m| m.art_color).unwrap_or(self.accent)

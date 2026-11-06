@@ -493,9 +493,38 @@ pub fn weeks(answer: &Answer, bills: &[Bill], bills_today: &str, today: &str, no
     days.extend(by_day.into_iter().filter(|(d, _)| *d > t0).map(|(day, v)| DayRows { day, rows: rows_of(v) }));
     if let Some(p) = pick.filter(|p| *p > t0 && *p <= last && !days.iter().any(|d| d.day == *p)) {
         let at = days.iter().position(|d| d.day > p).unwrap_or(days.len());
-        days.insert(at, DayRows { day: p, rows: Vec::new() });
+        let (y, m, d) = crate::datetime::civil_from_days(p);
+        let rows = if let Some(h) = crate::holidays::holiday_for(y, m, d) {
+            vec![Row {
+                when: "All day".into(),
+                mark: Mark::Calendar,
+                title: h.to_string(),
+                detail: "Hari Libur Nasional".to_string(),
+                join: None,
+                link: None,
+            }]
+        } else {
+            Vec::new()
+        };
+        days.insert(at, DayRows { day: p, rows });
     }
     Weeks { focus, days, kinds, today: t0, last }
+}
+
+/// Clean agenda containing only national holidays (Tanggal Merah) and no mock dummy events.
+pub fn clean_agenda(today: &str, _now_min: i32) -> Answer {
+    let t0 = day_num(today).unwrap_or(0);
+    let start = grid_start(t0);
+    let events = crate::holidays::holidays_in_range(start, t0 + ASK_DAYS as i64);
+    Answer {
+        day: today.into(),
+        days: ASK_DAYS,
+        through: None,
+        weeks: Some(true),
+        apps: Sources { googlecalendar: Source::On, gmail: Source::On },
+        events,
+        flights: Vec::new(),
+    }
 }
 
 /// The days the self-tests draw (Windows' `selftest`, the Mac's `render`),

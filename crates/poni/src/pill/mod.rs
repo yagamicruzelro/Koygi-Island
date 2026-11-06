@@ -1,4 +1,4 @@
-//! The Pill theme: the island floats a little below the top edge as a black
+﻿//! The Pill theme: the island floats a little below the top edge as a black
 //! capsule instead of hanging from it, and the theme is its layouts as much
 //! as its look. At rest it shows the time and the battery; while music plays,
 //! the song (and the line being sung); open, every page sits on a rounded
@@ -41,7 +41,7 @@ use poni_core::settings::Theme;
 pub const TOP_GAP: f32 = 8.0;
 
 pub fn on(theme: Theme) -> bool {
-    theme == Theme::Pill
+    theme == Theme::Pill || theme == Theme::OrenPill || theme == Theme::CorgiPill
 }
 
 /// The island's size for `m` in the Pill theme, or `None` for Classic's.

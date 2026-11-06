@@ -46,7 +46,7 @@ pub enum MenuCmd {
     OpenDataFolder,
     About,
     RecordScreen,
-    /// "Update to Oyenza Studio 0.2.5…" (`crate::updates`).
+    /// "Update to Koygi Island 0.2.5…" (`crate::updates`).
     Update,
     /// "Check for updates…": read the update file now (`crate::updates`).
     CheckForUpdates,
@@ -92,13 +92,20 @@ pub fn menu_items(s: &Settings, pinned: bool, login: Login, recorder: bool, oyen
         item("Keep island open", MenuCmd::TogglePinned, pinned),
         MenuItem::Sub {
             label: "Theme".into(),
-            items: vec![theme("Classic", Theme::Classic), theme("Oyen", Theme::Oyen), theme("Glass", Theme::Glass), theme("Pill", Theme::Pill)],
+            items: vec![
+                theme("Classic", Theme::Classic),
+                theme("Oren", Theme::Oren),
+                theme("Corgi", Theme::Corgi),
+                theme("Pill", Theme::Pill),
+                theme("Oren Pill", Theme::OrenPill),
+                theme("Corgi Pill", Theme::CorgiPill),
+            ],
         },
         MenuItem::Sub { label: "Idle look".into(), items: crate::pill::status::looks(s.theme).iter().map(|l| style(*l)).collect() },
         item("Synced lyrics", MenuCmd::ToggleLyrics, s.lyrics),
         item("Lyrics pronunciation (romaji, pinyin, Korean)", MenuCmd::TogglePronunciation, s.lyrics_pronunciation),
         apple_music_menu(),
-        oyenza_menu(s, oyenza),
+        // oyenza_menu removed (tab keuangan dihapus)
         item("Sounds", MenuCmd::ToggleSounds, s.sounds),
         MenuItem::Sub { label: "In full-screen apps".into(), items: vec![fullscreen("Hide", true), fullscreen("Stay on top", false)] },
         match login {
@@ -112,7 +119,7 @@ pub fn menu_items(s: &Settings, pinned: bool, login: Login, recorder: bool, oyen
         item("Open data folder", MenuCmd::OpenDataFolder, false),
         item(&crate::version::about_label(), MenuCmd::About, false),
         MenuItem::Separator,
-        MenuItem::Item { label: "Quit Oyenza Studio".into(), cmd: MenuCmd::Quit, checked: false, key: "q" },
+        MenuItem::Item { label: "Quit Koygi Island".into(), cmd: MenuCmd::Quit, checked: false, key: "q" },
     ];
     // Only while the island sits off the middle, under Keep island open.
     if s.island_x.is_some() {
@@ -127,7 +134,7 @@ pub fn menu_items(s: &Settings, pinned: bool, login: Login, recorder: bool, oyen
     match update {
         // A new version first, until it is installed.
         UpdateLine::Offer(v) => {
-            items.splice(0..0, [item(&format!("Update to Oyenza Studio {v}…"), MenuCmd::Update, false), MenuItem::Separator]);
+            items.splice(0..0, [item(&format!("Update to Koygi Island {v}…"), MenuCmd::Update, false), MenuItem::Separator]);
         }
         // Otherwise a look on request, under About (as in most Mac apps).
         UpdateLine::Check => {
@@ -218,7 +225,7 @@ impl MenuBar {
                 Some(img) => button.setImage(Some(&img)),
                 None => button.setTitle(&NSString::from_str("Poni")),
             }
-            button.setToolTip(Some(&NSString::from_str(&format!("Oyenza Studio {}", crate::version::VERSION))));
+            button.setToolTip(Some(&NSString::from_str(&format!("Koygi Island {}", crate::version::VERSION))));
         }
         let target: Retained<MenuTarget> = unsafe { objc2::msg_send![MenuTarget::alloc(mtm), init] };
         let menu = build(mtm, &target, &menu_items(s, pinned, login, crate::services::recorder::installed(), oyenza, update));

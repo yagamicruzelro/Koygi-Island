@@ -1,4 +1,4 @@
-//! The open Music page in the Pill theme, laid out like the card in ref1:
+﻿//! The open Music page in the Pill theme, laid out like the card in ref1:
 //! the album art on the left, the player's name in small grey capitals, the
 //! title and the artist beside it, the equalizer at the top right in the
 //! album's colour, one progress row (elapsed, the bar, time left), and the
@@ -75,12 +75,12 @@ const FONT_LINE: f32 = 1.330;
 const FONT_CAP: f32 = 0.700;
 
 // The equalizer, top right in the album's colour.
-const EQ_BARS: usize = 4;
-const EQ_BAR_W: f32 = 4.0;
+const EQ_BARS: usize = 8;
+const EQ_BAR_W: f32 = 3.5;
 const EQ_GAP: f32 = 2.0;
 const EQ_CY: f32 = 14.0;
-const EQ_LOW: f32 = 4.0;
-const EQ_HIGH: f32 = 13.0;
+const EQ_LOW: f32 = 3.2;
+const EQ_HIGH: f32 = 20.0;
 /// Space kept between the text column and the equalizer.
 const GAP_EQ: f32 = 12.0;
 
@@ -418,17 +418,22 @@ enum EqState {
 }
 
 /// A still dance: the bars' heights as a share of the range (the mockup's).
-const EQ_STILL: [f32; EQ_BARS] = [0.55, 1.0, 0.25, 0.8];
+const EQ_STILL: [f32; EQ_BARS] = [0.35, 0.65, 0.95, 0.5, 0.8, 0.4, 0.7, 0.3];
 /// The paused equalizer's opacity (Classic's paused player dot).
 const EQ_PAUSED_ALPHA: f32 = 0.45;
 
 /// Four bars ending at `right`.
-fn equalizer(ui: &mut Ui, right: f32, cy: f32, color: Color, eq: EqState, t: f64) {
+fn equalizer(ui: &mut Ui, right: f32, cy: f32, color: Color, eq: EqState, _t: f64) {
     let x0 = right - eq_width();
     let color = if eq == EqState::Paused { color.mul_alpha(EQ_PAUSED_ALPHA) } else { color };
     for i in 0..EQ_BARS {
+        let bands = if eq == EqState::Dancing {
+            crate::services::audio_meter::current_bands()
+        } else {
+            [0.0; EQ_BARS]
+        };
         let k = match eq {
-            EqState::Dancing => (0.5 + 0.5 * (t * (5.0 + i as f64 * 1.3) + i as f64 * 1.7).sin()) as f32,
+            EqState::Dancing => (0.15 + 0.85 * bands[i]).clamp(0.0, 1.0),
             EqState::Still => EQ_STILL[i],
             EqState::Paused => 0.0,
         };

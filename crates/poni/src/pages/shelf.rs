@@ -63,8 +63,8 @@ const PAIRING: bool = cfg!(windows);
 /// What the phone panel calls this computer.
 const THIS_COMPUTER: &str = if cfg!(windows) { "this PC" } else { "this Mac" };
 /// What to allow if the system asks about Phone drop's incoming connections.
-const ALLOW_HINT: &str = if cfg!(windows) { "If Windows asks, allow Oyenza Studio on private networks." } else { "If macOS asks, allow incoming connections for Oyenza Studio." };
-/// How long a phone result ("3 files from iPhone…") stays in the panel.
+const ALLOW_HINT: &str = if cfg!(windows) { "If Windows asks, allow Dynamic Island on private networks." } else { "If macOS asks, allow incoming connections for Dynamic Island." };
+/// How long a phone result ("3 files from iPhoneâ€¦") stays in the panel.
 pub const PHONE_OUTCOME_S: f64 = 8.0;
 
 pub fn height(st: &AppState) -> f32 {
@@ -84,12 +84,12 @@ struct Local {
     scroll_vis: f32,
     /// 0..1 drop-highlight while files hover over the island.
     glow: f32,
-    /// key → time the item first appeared (new tiles fade in).
+    /// key â†’ time the item first appeared (new tiles fade in).
     seen: HashMap<String, f64>,
     seeded: bool,
-    /// key → last thumbnail we drew (bridges re-checks without flicker).
+    /// key â†’ last thumbnail we drew (bridges re-checks without flicker).
     last_img: HashMap<String, Image>,
-    /// key → time of the last existence re-check.
+    /// key â†’ time of the last existence re-check.
     checked: HashMap<String, f64>,
     hovered: Option<WidgetId>,
     drag_started: bool,
@@ -109,6 +109,8 @@ thread_local! {
 enum Action {
     PhoneOpen,
     PhoneClose,
+    ToggleNotes,
+    OpenDrive,
     PhoneAnswer(u64, bool),
     Pair(PairCmd),
     Open(String),
@@ -159,10 +161,7 @@ fn draw_page(ui: &mut Ui, st: &mut AppState, area: Rect, l: &mut Local) {
     // Pill: the boxes that reach the card's bottom corners follow them.
     let card = super::card::pill_card(st, area);
     // With Phone drop open the shelf keeps its height and the panel sits below.
-    let (main, phone_r) = match &st.phone {
-        Some(_) => (Rect::new(area.x, area.y, area.w, PAGE_H), Some(Rect::new(area.x, area.y + PAGE_H + PHONE_GAP, area.w, PHONE_H))),
-        None => (area, None),
-    };
+    let (main, phone_r): (Rect, Option<Rect>) = (area, None);
     if items.is_empty() {
         draw_empty(ui, st, l, main, card, &mut actions);
     } else {
@@ -257,6 +256,8 @@ fn apply(st: &mut AppState, l: &mut Local, items: &[ShelfItem], actions: Vec<Act
     let now = st.now;
     for a in actions {
         match a {
+            Action::ToggleNotes => st.cmd(Command::ToggleShelfScratchpad),
+            Action::OpenDrive => st.cmd(Command::OpenUrl("https://drive.google.com".into())),
             Action::PhoneOpen => st.cmd(Command::Phone(PhoneCmd::Open)),
             Action::PhoneClose => st.cmd(Command::Phone(PhoneCmd::Close)),
             Action::PhoneAnswer(id, accept) => st.cmd(Command::Phone(PhoneCmd::Answer { id, accept })),
@@ -484,14 +485,14 @@ fn draw_header(ui: &mut Ui, st: &AppState, l: &Local, head: Rect, items: &[Shelf
         }
         right = undo_r.x;
     }
-    // Phone drop: send from or save to a phone (the panel opens below).
-    if st.phone.is_none() {
-        let phone_w = ui.pill_width("Phone", true, true);
-        let phone_r = Rect::new(right - PILL_GAP - phone_w, head.y, phone_w, PILL_SMALL);
-        if ui.pill(wid("shelf.phone"), phone_r, "Phone", Some(Icon::Phone), PillStyle::Utility).clicked {
-            actions.push(Action::PhoneOpen);
+    // Google Drive
+    {
+        let drive_w = 98.0;
+        let drive_r = Rect::new(right - PILL_GAP - drive_w, head.y, drive_w, PILL_SMALL);
+        if ui.pill(wid("shelf.drive"), drive_r, "Google Drive", Some(Icon::Open), PillStyle::Utility).clicked {
+            actions.push(Action::OpenDrive);
         }
-        right = phone_r.x;
+        right = drive_r.x;
     }
 
     // No instructions by default: the row only describes the hovered tile
@@ -511,7 +512,7 @@ fn draw_header(ui: &mut Ui, st: &AppState, l: &Local, head: Rect, items: &[Shelf
     }
 }
 
-/// "PDF", "Folder", "File" — the small line under a tile's name.
+/// "PDF", "Folder", "File" â€” the small line under a tile's name.
 fn caption(path: &str, kind: Option<PathKind>) -> String {
     if kind == Some(PathKind::Folder) {
         return "Folder".into();
@@ -526,7 +527,7 @@ fn caption(path: &str, kind: Option<PathKind>) -> String {
     }
 }
 
-/// Folder that contains `path` ("C:\a\b.txt" → "C:\a", "C:\b.txt" → "C:\").
+/// Folder that contains `path` ("C:\a\b.txt" â†’ "C:\a", "C:\b.txt" â†’ "C:\").
 fn parent_dir(path: &str) -> String {
     let t = path.trim_end_matches(['\\', '/']);
     match t.rfind(['\\', '/']) {
@@ -559,34 +560,24 @@ fn draw_drop_overlay(ui: &mut Ui, st: &AppState, zone: Rect, glow: f32, card: Op
 
 // ---------------------------------------------------------------- empty state
 
-fn draw_empty(ui: &mut Ui, st: &AppState, l: &Local, area: Rect, card: Option<(Rect, f32)>, actions: &mut Vec<Action>) {
+fn draw_empty(ui: &mut Ui, st: &mut AppState, l: &Local, area: Rect, card: Option<(Rect, f32)>, actions: &mut Vec<Action>) {
     let g = l.glow;
     let accent = st.accent;
-    // Same bottom edge as the drop overlay over a filled shelf.
     let full = Rect::new(area.x, area.y + TOP, area.w, (area.h - TOP - 4.0).max(0.0));
-    // The Phone tile shares the row until Phone drop is open.
-    let zone = if st.phone.is_none() {
-        let tile = Rect::new(full.right() - PHONE_TILE_W, full.y, PHONE_TILE_W, full.h);
-        if draw_phone_tile(ui, tile, 1.0 - g, card) {
-            actions.push(Action::PhoneOpen);
-        }
-        Rect::new(full.x, full.y, (full.w - PHONE_TILE_W - PILL_GAP).max(0.0), full.h)
-    } else {
-        full
-    };
+    let zone = full;
     let fill = Color::lerp(Color::white(0.03), accent.with_alpha(0.10), g);
     let stroke = Color::lerp(Color::white(0.12), accent.with_alpha(0.9), g);
     drop_zone(ui, card, zone, 18.0, fill, stroke);
 
     let undo_live = g < 0.5 && l.undo.as_ref().is_some_and(|(_, t)| st.now - t < UNDO_SECS);
     let (icon, title, hint) = if g >= 0.5 {
-        (Icon::Plus, DROP_LABEL, "Oyenza Studio keeps a link — the files stay where they are")
+        (Icon::Plus, DROP_LABEL, "Dynamic Island keeps a link — the files stay where they are")
     } else if undo_live {
         (Icon::Tray, "Shelf cleared", "")
     } else {
         (Icon::Tray, "Drop files here", "Drag files or folders onto the island to keep them close")
     };
-    // Icon, title and hint (or the Undo pill) stacked around the zone centre.
+
     let c = zone.center();
     let icon_col = Color::lerp(Color::white(0.38), accent, g);
     ui.c.icon(icon, Rect::from_center(Point::new(c.x, c.y - 22.0), 26.0, 26.0), icon_col);
@@ -598,10 +589,16 @@ fn draw_empty(ui: &mut Ui, st: &AppState, l: &Local, area: Rect, card: Option<(R
             actions.push(Action::Undo);
         }
     } else {
-        ui.c.text(hint, Rect::new(zone.x + 16.0, c.y + 16.0, zone.w - 32.0, 18.0), &TextStyle::footnote().color(palette::TEXT_DIM).center());
+        ui.c.text(hint, Rect::new(zone.x + 16.0, c.y + 12.0, zone.w - 32.0, 18.0), &TextStyle::footnote().color(palette::TEXT_DIM).center());
+
+        let btn_y = c.y + 36.0;
+        let drive_w = 110.0;
+        let drive_r = Rect::new(c.x - drive_w / 2.0, btn_y, drive_w, PILL_SMALL);
+        if ui.pill(wid("shelf.to_drive"), drive_r, "Google Drive", Some(Icon::Open), PillStyle::UtilityAccent(accent)).clicked {
+            actions.push(Action::OpenDrive);
+        }
     }
 }
-
 // ---------------------------------------------------------------- drawing helpers
 
 fn ease_out(t: f32) -> f32 {
@@ -677,8 +674,8 @@ fn draw_phone_tile(ui: &mut Ui, tile: Rect, alpha: f32, card: Option<(Rect, f32)
     let c = tile.center();
     ui.c.fill_circle(Point::new(c.x, c.y - 24.0), 18.0, Color::white(0.10));
     ui.c.icon(Icon::Phone, Rect::from_center(Point::new(c.x, c.y - 24.0), 20.0, 20.0), palette::TEXT);
-    ui.c.text("Phone drop", Rect::new(tile.x, c.y + 2.0, tile.w, 20.0), &TextStyle::headline().center());
-    ui.c.text("Send from or save to a phone", Rect::new(tile.x + 10.0, c.y + 22.0, tile.w - 20.0, 18.0), &TextStyle::footnote().color(palette::TEXT_DIM).center());
+    ui.c.text("Phone Link", Rect::new(tile.x, c.y + 2.0, tile.w, 20.0), &TextStyle::headline().center());
+    ui.c.text("Open Windows Phone Link", Rect::new(tile.x + 10.0, c.y + 22.0, tile.w - 20.0, 18.0), &TextStyle::footnote().color(palette::TEXT_DIM).center());
     ui.c.set_alpha(base);
     resp.clicked
 }

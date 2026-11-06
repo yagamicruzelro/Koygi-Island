@@ -37,14 +37,14 @@ const H: f32 = 32.0;
 pub(crate) const H_READS: f32 = 46.0;
 /// The pill is its text plus this much: the art and the equalizer with
 /// their gaps, the same on both sides so the text centres (spec 6.5).
-const SIDES: f32 = 88.0;
-const MIN_W: f32 = 240.0;
-const MAX_W: f32 = 520.0;
+const SIDES: f32 = 148.0;
+const MIN_W: f32 = 270.0;
+const MAX_W: f32 = 760.0;
 /// The song ("Title · artist") is held to the spec's width for a title on
 /// the collapsed pill (6.4's peek): without lyrics it rests there all song
 /// long, so it stays as compact as that; a sung line may take the full
 /// MAX_W (6.5).
-const SONG_MAX_W: f32 = 300.0;
+const SONG_MAX_W: f32 = 640.0;
 /// The artist shows whole, or at least this much of it.
 const ARTIST_MIN: f32 = 64.0;
 /// Widths go in steps of this much, so lines a few DIPs apart don't each
@@ -52,23 +52,23 @@ const ARTIST_MIN: f32 = 64.0;
 const W_STEP: f32 = 8.0;
 /// The art: 20 DIPs, 6 in from the end (spec 6.4).
 const ART: f32 = 20.0;
-const ART_INSET: f32 = 6.0;
+const ART_INSET: f32 = 12.0;
 const ART_R: f32 = 6.0;
 /// Text is cut this far from the art and the bars while the pill morphs
 /// (in every theme's singing pill).
 pub(crate) const TEXT_CLEAR: f32 = 4.0;
 /// The equalizer: 4 bars 3 wide and 2 apart, the last one 13 in from the
 /// end, 4 to 14 tall (spec 6.4).
-const BARS: usize = 4;
-const BAR_W: f32 = 3.0;
-const BAR_GAP: f32 = 2.0;
+const BARS: usize = 8;
+const BAR_W: f32 = 2.8;
+const BAR_GAP: f32 = 1.8;
 const EQ_RIGHT: f32 = 13.0;
 const EQ_W: f32 = BARS as f32 * BAR_W + (BARS - 1) as f32 * BAR_GAP;
-const BAR_LOW: f32 = 4.0;
-const BAR_HIGH: f32 = 14.0;
+const BAR_LOW: f32 = 3.2;
+const BAR_HIGH: f32 = 20.0;
 /// Where the bars hold (of their range) while music plays on battery
 /// saver: they stand still there rather than spend a frame a refresh.
-const BARS_STILL: [f32; BARS] = [0.45, 0.85, 0.3, 0.65];
+const BARS_STILL: [f32; BARS] = [0.35, 0.65, 0.95, 0.5, 0.8, 0.4, 0.7, 0.3];
 /// The glow: the bottom 15 DIPs, its alpha rising to 0.55 as t² (spec 6.5,
 /// 6.9), in at most 30 rows (a row a pixel up to 200 %).
 const GLOW_BAND: f32 = 15.0;
@@ -131,12 +131,33 @@ pub fn draw(ui: &mut Ui, st: &mut AppState, body: Rect) -> bool {
     glow(ui, body, accent, level);
     let art = Rect::new(body.x + ART_INSET, cy - ART / 2.0, ART, ART);
     draw_art(ui, st, art, lerp(PAUSED_ART, 1.0, level));
-    // The bars keep moving while they sink at a pause; on battery saver they stand.
     let moving = (playing || level > 0.0) && !st.power.saver;
-    let eq_x = body.right() - EQ_RIGHT - EQ_W;
-    // The open card's equalizer colour, so the bars keep it through a morph.
+
+    use poni_core::settings::Theme;
+    let has_mascot = st.settings.theme == Theme::OrenPill || st.settings.theme == Theme::CorgiPill;
+    let (char_cx, eq_x) = if has_mascot {
+        let cx = body.right() - 24.0;
+        let eq_right = cx - 18.0;
+        (Some(cx), eq_right - EQ_W)
+    } else {
+        (None, body.right() - 16.0 - EQ_W)
+    };
+
     equalizer(ui, eq_x, cy, super::music::eq_color(accent), level, moving, now);
-    middle(ui, st, body, art.right() + TEXT_CLEAR, eq_x - TEXT_CLEAR, lerp(PAUSED_TEXT, 1.0, level));
+
+    if let Some(cx) = char_cx {
+        let bar_y = cy + 9.5;
+        let char_w = 22.0;
+        let top = body.y + 1.0;
+        if st.settings.theme == Theme::OrenPill {
+            let f = crate::oyen::music(now, playing, st.media_paused_at);
+            crate::oyen::peek(ui.c, &f, cx, bar_y, char_w, top);
+        } else if st.settings.theme == Theme::CorgiPill {
+            crate::corgi::music_peek(ui.c, cx, bar_y, char_w, top, now, playing);
+        }
+    }
+
+    middle(ui, st, body, art.right() + 12.0, eq_x - 10.0, lerp(PAUSED_TEXT, 1.0, level));
     true
 }
 
@@ -150,7 +171,9 @@ pub(crate) fn middle(ui: &mut Ui, st: &AppState, body: Rect, x0: f32, x1: f32, a
     // text, so its layout doesn't change with the pill's width on each
     // frame of a morph, cut where the art and the bars are.
     let h = height(st);
-    let area = Rect::new(body.center().x - (MAX_W - SIDES) / 2.0, body.center().y - h / 2.0, MAX_W - SIDES, h);
+    let slot_w = (x1 - x0).max(0.0);
+    let slot_cx = (x0 + x1) / 2.0;
+    let area = Rect::new(slot_cx - (MAX_W - SIDES) / 2.0, body.center().y - h / 2.0, MAX_W - SIDES, h);
     ui.c.clip(Rect::new(x0, body.y, (x1 - x0).max(0.0), body.h));
     let want = draw_text(ui, st, area, alpha, st.now);
     ui.c.unclip();
@@ -288,8 +311,8 @@ fn draw_song(ui: &mut Ui, st: &AppState, area: Rect, alpha: f32) -> f32 {
     if main.is_empty() {
         return 0.0;
     }
-    let main_st = TextStyle::body().weight(Weight::Semibold);
-    let rest_st = TextStyle::body().color(palette::TEXT_DIM);
+    let main_st = TextStyle::new(12.2).weight(Weight::Semibold);
+    let rest_st = TextStyle::new(12.0).color(palette::TEXT_DIM);
     let rest = if rest.is_empty() { String::new() } else { format!(" \u{b7} {rest}") };
     let mw = ui.c.measure(main, &main_st, 10_000.0).0;
     let rw = if rest.is_empty() { 0.0 } else { ui.c.measure(&rest, &rest_st, 10_000.0).0 };
@@ -328,7 +351,7 @@ fn draw_song(ui: &mut Ui, st: &AppState, area: Rect, alpha: f32) -> f32 {
             }
         });
     }
-    mw.min(area.w) + shown
+    mw + rw
 }
 
 /// The album art, or a note on a soft tile when the player sends none.
@@ -348,10 +371,21 @@ fn draw_art(ui: &mut Ui, st: &AppState, r: Rect, alpha: f32) {
 /// one to the other).
 fn equalizer(ui: &mut Ui, x: f32, cy: f32, color: Color, level: f32, moving: bool, t: f64) {
     let s = ui.c.scale().max(0.1);
+    let bands = if moving {
+        crate::services::audio_meter::current_bands()
+    } else {
+        [0.0; BARS]
+    };
     for (i, still) in BARS_STILL.iter().enumerate() {
-        let k = if moving { bounce(i, t) } else { *still };
+        let k = if moving {
+            let b = bands[i];
+            let phase = i as f64 * 0.75;
+            let ripple = ((t * 8.0 + phase).sin() * 0.07) as f32;
+            (b + ripple * (1.0 - b)).clamp(0.06, 1.0)
+        } else {
+            *still
+        };
         let h = BAR_LOW + (BAR_HIGH - BAR_LOW) * k * level;
-        // Whole pixels across: 3 DIP bars stay crisp at 100 %.
         let bx = ((x + i as f32 * (BAR_W + BAR_GAP)) * s).round() / s;
         ui.c.fill_rrect(Rect::new(bx, cy - h / 2.0, BAR_W, h), BAR_W / 2.0, color);
     }
@@ -360,9 +394,9 @@ fn equalizer(ui: &mut Ui, x: f32, cy: f32, color: Color, level: f32, moving: boo
 /// How high bar `i` stands at `t` (0..1 of its range): two waves a bar at
 /// rates that never line up, so the bars don't fall into one rhythm.
 fn bounce(i: usize, t: f64) -> f32 {
-    const SLOW: [(f64, f64); BARS] = [(8.2, 0.0), (10.6, 1.9), (7.4, 3.7), (9.5, 5.3)];
-    const FAST: [(f64, f64); BARS] = [(13.3, 2.4), (15.8, 0.7), (12.1, 4.6), (14.6, 1.3)];
-    let ((a, p), (b, q)) = (SLOW[i], FAST[i]);
+    const SLOW: [(f64, f64); 4] = [(8.2, 0.0), (10.6, 1.9), (7.4, 3.7), (9.5, 5.3)];
+    const FAST: [(f64, f64); 4] = [(13.3, 2.4), (15.8, 0.7), (12.1, 4.6), (14.6, 1.3)];
+    let ((a, p), (b, q)) = (SLOW[i % 4], FAST[i % 4]);
     (0.5 + 0.3 * (a * t + p).sin() + 0.2 * (b * t + q).sin()).clamp(0.0, 1.0) as f32
 }
 

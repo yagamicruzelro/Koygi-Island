@@ -1,4 +1,4 @@
-//! Master volume change notifications (Core Audio).
+//! Master volume change notifications (Core Audio) and hardware volume key hook.
 //!
 //! A dedicated MTA thread owns the `IMMDeviceEnumerator` and the
 //! `IAudioEndpointVolume` of the default render endpoint (console role).
@@ -9,6 +9,10 @@
 //! the worker; the worker re-binds to the new endpoint (Core Audio forbids
 //! (un)registering from inside its own callbacks) and reports its state.
 //!
+//! A low-level keyboard hook intercepts VK_VOLUME_UP, VK_VOLUME_DOWN, and
+//! VK_VOLUME_MUTE, blocks the native Windows OSD flyout, and routes the adjustments
+//! directly through Core Audio, triggering the Dynamic Island volume HUD.
+//!
 //! Idle cost: the worker sleeps in a blocking `recv`; nothing polls.
 
 use crate::events::{AppEvent, EventSink};
@@ -17,19 +21,52 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::Duration;
 use windows::core::{implement, Result, PCWSTR};
-use windows::Win32::Foundation::E_FAIL;
+use windows::Win32::Foundation::{BOOL, E_FAIL, LPARAM, LRESULT, WPARAM};
 use windows::Win32::Media::Audio::Endpoints::{IAudioEndpointVolume, IAudioEndpointVolumeCallback, IAudioEndpointVolumeCallback_Impl};
 use windows::Win32::Media::Audio::{
     eConsole, eMultimedia, eRender, EDataFlow, ERole, IMMDevice, IMMDeviceEnumerator, IMMNotificationClient, IMMNotificationClient_Impl,
     MMDeviceEnumerator, AUDCLNT_E_DEVICE_INVALIDATED, AUDIO_VOLUME_NOTIFICATION_DATA, DEVICE_STATE,
 };
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED};
+use windows::Win32::UI::Input::KeyboardAndMouse::{VK_VOLUME_DOWN, VK_VOLUME_MUTE, VK_VOLUME_UP};
 use windows::Win32::UI::Shell::PropertiesSystem::PROPERTYKEY;
+use windows::Win32::UI::WindowsAndMessaging::{
+    CallNextHookEx, SetWindowsHookExW, UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT, WH_KEYBOARD_LL, WM_KEYDOWN, WM_SYSKEYDOWN,
+};
 
 /// How long `Drop` waits for the worker to unregister before detaching it.
 const STOP_TIMEOUT: Duration = Duration::from_millis(800);
 
-/// Master-volume watcher. Dropping it unregisters every callback.
+static HOOK_TX: Mutex<Option<Sender<Msg>>> = Mutex::new(None);
+static HOOK_HANDLE: Mutex<Option<usize>> = Mutex::new(None);
+
+unsafe extern "system" fn ll_keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    if code >= 0 {
+        let kbd = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
+        let vk = kbd.vkCode;
+        if vk == VK_VOLUME_UP.0 as u32 || vk == VK_VOLUME_DOWN.0 as u32 || vk == VK_VOLUME_MUTE.0 as u32 {
+            let is_down = wparam.0 == WM_KEYDOWN as usize || wparam.0 == WM_SYSKEYDOWN as usize;
+            if is_down {
+                if let Ok(guard) = HOOK_TX.lock() {
+                    if let Some(tx) = guard.as_ref() {
+                        if vk == VK_VOLUME_UP.0 as u32 {
+                            let _ = tx.send(Msg::StepUp);
+                        } else if vk == VK_VOLUME_DOWN.0 as u32 {
+                            let _ = tx.send(Msg::StepDown);
+                        } else if vk == VK_VOLUME_MUTE.0 as u32 {
+                            let _ = tx.send(Msg::ToggleMute);
+                        }
+                    }
+                }
+            }
+            // Return 1: suppress keystroke so Windows Shell does not spawn default volume flyout
+            return LRESULT(1);
+        }
+    }
+    CallNextHookEx(None, code, wparam, lparam)
+}
+
+/// Master-volume watcher and hardware HUD replacement hook.
 pub struct AudioService {
     tx: Sender<Msg>,
     done: Receiver<()>,
@@ -41,6 +78,20 @@ impl AudioService {
         let (tx, rx) = mpsc::channel();
         let (done_tx, done) = mpsc::channel();
         let client_tx = tx.clone();
+
+        if let Ok(mut guard) = HOOK_TX.lock() {
+            *guard = Some(client_tx.clone());
+        }
+        let hook = unsafe { SetWindowsHookExW(WH_KEYBOARD_LL, Some(ll_keyboard_proc), None, 0) };
+        if let Ok(h) = hook {
+            if let Ok(mut guard) = HOOK_HANDLE.lock() {
+                *guard = Some(h.0 as usize);
+            }
+            crate::pinfo!("audio: low-level volume hook active (Windows OSD suppressed)");
+        } else if let Err(e) = hook {
+            crate::pwarn!("audio: failed to install volume hook ({e})");
+        }
+
         let thread = std::thread::Builder::new()
             .name("poni-audio".into())
             .spawn(move || {
@@ -54,6 +105,16 @@ impl AudioService {
 
 impl Drop for AudioService {
     fn drop(&mut self) {
+        if let Ok(mut guard) = HOOK_HANDLE.lock() {
+            if let Some(raw) = guard.take() {
+                let _ = unsafe { UnhookWindowsHookEx(HHOOK(raw as *mut _)) };
+                crate::pinfo!("audio: volume hook unhooked (Windows OSD restored)");
+            }
+        }
+        if let Ok(mut guard) = HOOK_TX.lock() {
+            *guard = None;
+        }
+
         let _ = self.tx.send(Msg::Shutdown);
         let Some(thread) = self.thread.take() else { return };
         match self.done.recv_timeout(STOP_TIMEOUT) {
@@ -69,6 +130,9 @@ impl Drop for AudioService {
 enum Msg {
     /// The default render endpoint (console or multimedia role) changed.
     DefaultChanged,
+    StepUp,
+    StepDown,
+    ToggleMute,
     Shutdown,
 }
 
@@ -89,8 +153,6 @@ struct Gate {
 
 impl Gate {
     fn lock(&self) -> MutexGuard<'_, GateState> {
-        // A poisoned lock only means another thread panicked mid-update; the
-        // two plain fields are still meaningful.
         self.state.lock().unwrap_or_else(|e| e.into_inner())
     }
 
@@ -128,8 +190,6 @@ struct VolumeCallback {
 
 impl IAudioEndpointVolumeCallback_Impl for VolumeCallback_Impl {
     fn OnNotify(&self, pnotify: *mut AUDIO_VOLUME_NOTIFICATION_DATA) -> Result<()> {
-        // SAFETY: Core Audio passes either null or a struct that is valid for
-        // the duration of this call; we only read two fields.
         if let Some(data) = unsafe { pnotify.as_ref() } {
             self.gate.publish(self.generation, data.fMasterVolume, data.bMuted.as_bool());
         }
@@ -156,7 +216,6 @@ impl IMMNotificationClient_Impl for DeviceClient_Impl {
     }
 
     fn OnDefaultDeviceChanged(&self, flow: EDataFlow, role: ERole, _id: &PCWSTR) -> Result<()> {
-        // Never touch Core Audio from here: just wake the worker.
         if flow == eRender && (role == eConsole || role == eMultimedia) {
             let _ = self.tx.send(Msg::DefaultChanged);
         }
@@ -171,15 +230,12 @@ impl IMMNotificationClient_Impl for DeviceClient_Impl {
 // ---------------------------------------------------------------------------
 // Worker thread.
 
-/// COM apartment membership for the current thread.
 struct ComApartment {
     initialized: bool,
 }
 
 impl ComApartment {
     fn enter_mta() -> Self {
-        // S_OK and S_FALSE both need a matching CoUninitialize; a failure
-        // (e.g. RPC_E_CHANGED_MODE) must not be balanced.
         let hr = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
         if hr.is_err() {
             crate::pwarn!("audio: CoInitializeEx failed ({hr:?})");
@@ -196,8 +252,6 @@ impl Drop for ComApartment {
     }
 }
 
-/// The endpoint we listen to. The callback object stays alive (and
-/// registered) for exactly as long as this binding.
 struct Binding {
     id: String,
     volume: IAudioEndpointVolume,
@@ -207,7 +261,6 @@ struct Binding {
 impl Binding {
     fn unbind(self) {
         match unsafe { self.volume.UnregisterControlChangeNotify(&self.callback) } {
-            // An unplugged endpoint is already gone, together with its registration.
             Err(e) if e.code() == AUDCLNT_E_DEVICE_INVALIDATED => {}
             Err(e) => crate::pwarn!("audio: UnregisterControlChangeNotify failed ({e})"),
             Ok(()) => {}
@@ -216,7 +269,6 @@ impl Binding {
 }
 
 fn worker(sink: EventSink, rx: Receiver<Msg>, client_tx: Sender<Msg>) {
-    // Declared first so it is dropped last, after every COM object below.
     let com = ComApartment::enter_mta();
     if !com.initialized {
         return;
@@ -240,14 +292,29 @@ fn worker(sink: EventSink, rx: Receiver<Msg>, client_tx: Sender<Msg>) {
     };
 
     let gate = Arc::new(Gate { sink, state: Mutex::new(GateState { generation: 0, last: None }) });
-    // The first report doubles as the initial state, which the app shows silently.
     let mut binding = rebind(&enumerator, &gate, None);
 
     while let Ok(msg) = rx.recv() {
         match msg {
             Msg::Shutdown => break,
+            Msg::StepUp => {
+                if let Some(b) = &binding {
+                    let _ = unsafe { b.volume.VolumeStepUp(std::ptr::null()) };
+                }
+            }
+            Msg::StepDown => {
+                if let Some(b) = &binding {
+                    let _ = unsafe { b.volume.VolumeStepDown(std::ptr::null()) };
+                }
+            }
+            Msg::ToggleMute => {
+                if let Some(b) = &binding {
+                    if let Ok(m) = unsafe { b.volume.GetMute() } {
+                        let _ = unsafe { b.volume.SetMute(BOOL::from(!m.as_bool()), std::ptr::null()) };
+                    }
+                }
+            }
             Msg::DefaultChanged => {
-                // One switch fires once per role; handle the burst once.
                 let mut shutdown = false;
                 while let Ok(m) = rx.try_recv() {
                     if matches!(m, Msg::Shutdown) {
@@ -271,16 +338,12 @@ fn worker(sink: EventSink, rx: Receiver<Msg>, client_tx: Sender<Msg>) {
             crate::pwarn!("audio: UnregisterEndpointNotificationCallback failed ({e})");
         }
     }
-    // `client`, `enumerator`, then `com` drop here, in that order.
 }
 
-/// Bind to the current default endpoint (unless it is the one already bound)
-/// and report its state.
 fn rebind(enumerator: &IMMDeviceEnumerator, gate: &Arc<Gate>, current: Option<Binding>) -> Option<Binding> {
     let device = match unsafe { enumerator.GetDefaultAudioEndpoint(eRender, eConsole) } {
         Ok(d) => d,
         Err(e) => {
-            // No output device at all (all unplugged / disabled).
             crate::pinfo!("audio: no default output device ({e})");
             gate.next_generation();
             if let Some(b) = current {
@@ -291,15 +354,11 @@ fn rebind(enumerator: &IMMDeviceEnumerator, gate: &Arc<Gate>, current: Option<Bi
     };
     let id = device_id(&device);
     if let Some(b) = &current {
-        // Same endpoint (a per-role repeat of one switch) and still alive. A
-        // quick unplug + replug keeps the id but invalidates the old object,
-        // which then fails this read and gets re-bound below.
         if !id.is_empty() && b.id == id && unsafe { b.volume.GetMasterVolumeLevelScalar() }.is_ok() {
             return current;
         }
     }
 
-    // A new generation silences the old endpoint's late callbacks.
     let generation = gate.next_generation();
     if let Some(b) = current {
         b.unbind();
@@ -326,12 +385,9 @@ fn bind(device: &IMMDevice, id: String, gate: &Arc<Gate>, generation: u32) -> Re
     Ok(Binding { id, volume, callback })
 }
 
-/// The endpoint id string ("" if it cannot be read).
 fn device_id(device: &IMMDevice) -> String {
     match unsafe { device.GetId() } {
         Ok(p) if !p.is_null() => {
-            // SAFETY: GetId returns a NUL-terminated, CoTaskMemAlloc'ed string
-            // that we own and free exactly once.
             let id = unsafe { p.to_string() }.unwrap_or_default();
             unsafe { CoTaskMemFree(Some(p.0 as *const _)) };
             id

@@ -1,4 +1,4 @@
-//! The open island as a floating card: its size and corner radius, and its
+﻿//! The open island as a floating card: its size and corner radius, and its
 //! frame (the header with the tabs, clock, pin and gear, and the page area)
 //! kept clear of the rounded top corners.
 //!

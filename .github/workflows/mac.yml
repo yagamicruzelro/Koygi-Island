@@ -115,7 +115,7 @@ jobs:
       - name: Smoke run (the real window, with screenshots)
         env:
           MEDIAREMOTE_TEST_CLIENT: build/mediaremote/MediaRemoteAdapterTestClient
-        run: bash tools/mac-smoke.sh "dist/Oyenza Studio.app/Contents/MacOS/poni"
+        run: bash tools/mac-smoke.sh "dist/Koygi Island.app/Contents/MacOS/poni"
 
       - name: Check the DMG
         run: |
@@ -123,11 +123,11 @@ jobs:
           hdiutil attach "$dmg" -nobrowse -readonly -mountpoint /tmp/poni-dmg
           ls -la /tmp/poni-dmg
           # What a PR costs on the Mac: the DMG, and the app's binary in it.
-          ls -l "$dmg" "/tmp/poni-dmg/Oyenza Studio.app/Contents/MacOS/poni"
-          plutil -p "/tmp/poni-dmg/Oyenza Studio.app/Contents/Info.plist"
-          lipo -info "/tmp/poni-dmg/Oyenza Studio.app/Contents/MacOS/poni"
-          codesign --verify --deep --strict "/tmp/poni-dmg/Oyenza Studio.app"
-          spctl --assess --type execute -vv "/tmp/poni-dmg/Oyenza Studio.app" || echo "(expected: Gatekeeper turns down a build that isn't signed with a Developer ID yet)"
+          ls -l "$dmg" "/tmp/poni-dmg/Koygi Island.app/Contents/MacOS/poni"
+          plutil -p "/tmp/poni-dmg/Koygi Island.app/Contents/Info.plist"
+          lipo -info "/tmp/poni-dmg/Koygi Island.app/Contents/MacOS/poni"
+          codesign --verify --deep --strict "/tmp/poni-dmg/Koygi Island.app"
+          spctl --assess --type execute -vv "/tmp/poni-dmg/Koygi Island.app" || echo "(expected: Gatekeeper turns down a build that isn't signed with a Developer ID yet)"
           hdiutil detach /tmp/poni-dmg
 
       # A Mac installs its own update (docs/updates.md): an installed copy
@@ -135,11 +135,11 @@ jobs:
       # made like a release's), takes the app out, swaps it into its own
       # place, quits, and the new version opens.
       - name: Update in place (the app replaces itself)
-        run: bash tools/mac-update-test.sh "dist/Oyenza Studio.app"
+        run: bash tools/mac-update-test.sh "dist/Koygi Island.app"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: oyenza-studio-mac-dmg
+          name: koygi-island-mac-dmg
           path: dist/*.dmg
       - uses: actions/upload-artifact@v4
         with:
@@ -250,7 +250,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: oyenza-studio-mac-dmg
+          name: koygi-island-mac-dmg
           path: dmg
       - uses: actions/download-artifact@v4
         with:
@@ -264,9 +264,9 @@ jobs:
           sw_vers
           hdiutil attach dmg/*.dmg -nobrowse -readonly -mountpoint /tmp/poni-dmg
           mkdir -p dist
-          cp -R "/tmp/poni-dmg/Oyenza Studio.app" dist/
+          cp -R "/tmp/poni-dmg/Koygi Island.app" dist/
           hdiutil detach /tmp/poni-dmg
-          bash tools/mac-smoke.sh "dist/Oyenza Studio.app/Contents/MacOS/poni"
+          bash tools/mac-smoke.sh "dist/Koygi Island.app/Contents/MacOS/poni"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -291,7 +291,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: oyenza-studio-mac-dmg
+          name: koygi-island-mac-dmg
           path: dmg
       - name: A throwaway signing certificate in a temporary keychain
         run: |
@@ -379,7 +379,7 @@ jobs:
       - uses: actions/download-artifact@v4
         if: steps.secrets.outputs.present == 'true'
         with:
-          name: oyenza-studio-mac-dmg
+          name: koygi-island-mac-dmg
           path: dmg
       - name: The Developer ID certificate in a temporary keychain
         if: steps.secrets.outputs.present == 'true'
@@ -427,7 +427,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: steps.dmg.outputs.signed == 'true'
         with:
-          name: oyenza-studio-mac-dmg-signed
+          name: koygi-island-mac-dmg-signed
           path: signed/*.dmg
       # The adapter's test player, as every other smoke run has it.
       - uses: actions/download-artifact@v4
@@ -491,8 +491,8 @@ jobs:
           if [ -n "${KEYCHAIN:-}" ]; then security delete-keychain "$KEYCHAIN" || true; fi
           rm -f "$RUNNER_TEMP/notary-key.p8"
 
-  # The Mac app on the release: Oyenza-Studio-<version>-mac.dmg, plus
-  # Oyenza-Studio-Mac.dmg, the fixed name the README's and the website's Mac
+  # The Mac app on the release: Koygi-Island-<version>-mac.dmg, plus
+  # Koygi-Island-Mac.dmg, the fixed name the README's and the website's Mac
   # buttons download from releases/latest, and Oyen-Poni-Mac.dmg, the fixed
   # name from before the rename (0.1.17 to the last 0.1.x), which links out there still
   # use. ci publishes the release once the Windows build, installer and install
@@ -510,12 +510,12 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: oyenza-studio-mac-dmg
+          name: koygi-island-mac-dmg
           path: dist
       - uses: actions/download-artifact@v4
         if: needs.sign.result == 'success' && needs.sign.outputs.signed == 'true'
         with:
-          name: oyenza-studio-mac-dmg-signed
+          name: koygi-island-mac-dmg-signed
           path: signed
       - name: Use the signed DMG when there is one
         env:
@@ -537,14 +537,14 @@ jobs:
         run: |
           tag="$GITHUB_REF_NAME"
           src=$(ls dist/*.dmg | head -1)
-          [ "$src" = "dist/Oyenza-Studio-${tag#v}-mac.dmg" ] || cp "$src" "dist/Oyenza-Studio-${tag#v}-mac.dmg"
-          cp "$src" dist/Oyenza-Studio-Mac.dmg
+          [ "$src" = "dist/Koygi-Island-${tag#v}-mac.dmg" ] || cp "$src" "dist/Koygi-Island-${tag#v}-mac.dmg"
+          cp "$src" dist/Koygi-Island-Mac.dmg
           cp "$src" dist/Oyen-Poni-Mac.dmg
           for i in $(seq 1 90); do
             gh release view "$tag" > /dev/null 2>&1 && break
             sleep 30
           done
-          gh release upload "$tag" "dist/Oyenza-Studio-${tag#v}-mac.dmg" dist/Oyenza-Studio-Mac.dmg dist/Oyen-Poni-Mac.dmg --clobber
+          gh release upload "$tag" "dist/Koygi-Island-${tag#v}-mac.dmg" dist/Koygi-Island-Mac.dmg dist/Oyen-Poni-Mac.dmg --clobber
       # latest.json tells Macs about a release only once its DMG is there
       # (docs/updates.md): have the Website workflow write it again now.
       - name: Let the update file name the DMG

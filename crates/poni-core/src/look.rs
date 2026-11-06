@@ -91,10 +91,10 @@ pub const CLASSIC: Look = Look {
 /// Oyen: warm cream paper, espresso ink, Oyen's orange, and Outfit (the Oyen
 /// Poni website's typeface) for every Latin letter.
 pub const OYEN: Look = Look {
-    ground: Color::hex(0xFFF1DE),
-    ink: Color::hex(0x2B1B10),
+    ground: Color::hex(0xDCBD96),
+    ink: Color::hex(0x1C0F05),
     accent: Some(OYEN_ORANGE),
-    border: Color::rgba(0.55, 0.30, 0.10, 0.22),
+    border: Color::rgba(0.48, 0.24, 0.06, 0.30),
     light: true,
     font: Some("Outfit"),
     material: Material::Solid,
@@ -118,7 +118,7 @@ pub const OYEN: Look = Look {
 /// stays in everything on it: cream ink, his orange, Outfit, his face.
 pub const OYEN_NIGHT: Look = Look {
     ground: Color::black(1.0),
-    ink: Color::hex(0xFFF1DE),
+    ink: Color::hex(0xDCBD96),
     accent: Some(OYEN_ORANGE),
     border: Color::rgba(1.0, 0.945, 0.871, 0.07),
     light: false,
@@ -185,14 +185,86 @@ pub const PILL: Look = Look {
     swaps: &[],
 };
 
+pub const OREN_PILL: Look = Look {
+    ground: Color::hex(0xDCBD96),
+    ink: Color::hex(0x1C0F05),
+    accent: Some(OYEN_ORANGE),
+    border: Color::rgba(0.48, 0.24, 0.06, 0.30),
+    light: true,
+    font: Some("Outfit"),
+    material: Material::Solid,
+    shape: Shape::Pill,
+    swaps: &[
+        Swap { from: OYEN_ORANGE, fill: OYEN_ORANGE, text: OYEN_FOLD },
+        Swap { from: palette::ORANGE, fill: OYEN_ORANGE, text: OYEN_FOLD },
+        Swap { from: palette::GREEN, fill: Color::hex(0x2DB45A), text: Color::hex(0x1B7F3E) },
+        Swap { from: palette::RED, fill: Color::hex(0xE5484D), text: Color::hex(0xC9302C) },
+        Swap { from: palette::BLUE, fill: Color::hex(0x2F7CF6), text: Color::hex(0x1A5FCC) },
+        Swap { from: palette::CYAN, fill: Color::hex(0x2AA5D6), text: Color::hex(0x0F7299) },
+        Swap { from: palette::PURPLE, fill: Color::hex(0xA552D8), text: Color::hex(0x8337B8) },
+        Swap { from: palette::YELLOW, fill: Color::hex(0xE8A33D), text: Color::hex(0xA8670A) },
+        Swap { from: palette::PINK, fill: Color::hex(0xF0477A), text: Color::hex(0xC92B5E) },
+    ],
+};
+
+const CORGI_GOLDEN: Color = Color::hex(0xE2943B);
+const CORGI_FOLD: Color = Color::hex(0xB86F1C);
+
+pub const CORGI: Look = Look {
+    ground: Color::hex(0xE2CAA5),
+    ink: Color::hex(0x1F1206),
+    accent: Some(CORGI_GOLDEN),
+    border: Color::rgba(0.52, 0.32, 0.08, 0.30),
+    light: true,
+    font: Some("Outfit"),
+    material: Material::Solid,
+    shape: Shape::Notch,
+    swaps: &[
+        Swap { from: CORGI_GOLDEN, fill: CORGI_GOLDEN, text: CORGI_FOLD },
+        Swap { from: palette::ORANGE, fill: CORGI_GOLDEN, text: CORGI_FOLD },
+        Swap { from: palette::GREEN, fill: Color::hex(0x2DB45A), text: Color::hex(0x1B7F3E) },
+        Swap { from: palette::RED, fill: Color::hex(0xE5484D), text: Color::hex(0xC9302C) },
+        Swap { from: palette::BLUE, fill: Color::hex(0x2F7CF6), text: Color::hex(0x1A5FCC) },
+        Swap { from: palette::CYAN, fill: Color::hex(0x2AA5D6), text: Color::hex(0x0F7299) },
+        Swap { from: palette::PURPLE, fill: Color::hex(0xA552D8), text: Color::hex(0x8337B8) },
+        Swap { from: palette::YELLOW, fill: Color::hex(0xE8A33D), text: Color::hex(0xA8670A) },
+        Swap { from: palette::PINK, fill: Color::hex(0xF0477A), text: Color::hex(0xC92B5E) },
+    ],
+};
+
+pub const CORGI_PILL: Look = Look {
+    ground: Color::hex(0xE2CAA5),
+    ink: Color::hex(0x1F1206),
+    accent: Some(CORGI_GOLDEN),
+    border: Color::rgba(0.52, 0.32, 0.08, 0.30),
+    light: true,
+    font: Some("Outfit"),
+    material: Material::Solid,
+    shape: Shape::Pill,
+    swaps: &[
+        Swap { from: CORGI_GOLDEN, fill: CORGI_GOLDEN, text: CORGI_FOLD },
+        Swap { from: palette::ORANGE, fill: CORGI_GOLDEN, text: CORGI_FOLD },
+        Swap { from: palette::GREEN, fill: Color::hex(0x2DB45A), text: Color::hex(0x1B7F3E) },
+        Swap { from: palette::RED, fill: Color::hex(0xE5484D), text: Color::hex(0xC9302C) },
+        Swap { from: palette::BLUE, fill: Color::hex(0x2F7CF6), text: Color::hex(0x1A5FCC) },
+        Swap { from: palette::CYAN, fill: Color::hex(0x2AA5D6), text: Color::hex(0x0F7299) },
+        Swap { from: palette::PURPLE, fill: Color::hex(0xA552D8), text: Color::hex(0x8337B8) },
+        Swap { from: palette::YELLOW, fill: Color::hex(0xE8A33D), text: Color::hex(0xA8670A) },
+        Swap { from: palette::PINK, fill: Color::hex(0xF0477A), text: Color::hex(0xC92B5E) },
+    ],
+};
+
+
 /// The theme's look. Glass starts dark; the app picks [`glass`] light or
 /// dark from what's behind the island and the Windows mode.
 pub fn of(theme: Theme) -> &'static Look {
     match theme {
         Theme::Classic => &CLASSIC,
-        Theme::Oyen => &OYEN,
-        Theme::Glass => &GLASS_DARK,
+        Theme::Oren => &OYEN,
+        Theme::Corgi => &CORGI,
         Theme::Pill => &PILL,
+        Theme::OrenPill => &OREN_PILL,
+        Theme::CorgiPill => &CORGI_PILL,
     }
 }
 
@@ -203,9 +275,11 @@ pub fn of(theme: Theme) -> &'static Look {
 pub fn around_notch(theme: Theme) -> &'static Look {
     match theme {
         Theme::Classic => &CLASSIC,
-        Theme::Oyen => &OYEN_NIGHT,
-        Theme::Glass => &GLASS_DARK,
+        Theme::Oren => &OYEN_NIGHT,
+        Theme::Corgi => &CORGI,
         Theme::Pill => &PILL,
+        Theme::OrenPill => &OREN_PILL,
+        Theme::CorgiPill => &CORGI_PILL,
     }
 }
 
@@ -316,10 +390,10 @@ mod tests {
     #[test]
     fn around_a_notch_only_oyen_changes() {
         assert_eq!(*around_notch(Theme::Classic), CLASSIC);
-        assert_eq!(*around_notch(Theme::Oyen), OYEN_NIGHT);
-        assert_eq!(*around_notch(Theme::Glass), GLASS_DARK);
+        assert_eq!(*around_notch(Theme::Oren), OYEN_NIGHT);
+        
         // Away from a notch (and on Windows) every theme keeps its look.
-        assert_eq!(*of(Theme::Oyen), OYEN);
+        assert_eq!(*of(Theme::Oren), OYEN);
     }
 
     #[test]
@@ -343,7 +417,7 @@ mod tests {
         assert_eq!(OYEN.material, Material::Solid);
         assert_eq!(GLASS_DARK.material, Material::Glass);
         assert_eq!(GLASS_LIGHT.material, Material::Glass);
-        assert_eq!(*of(Theme::Glass), GLASS_DARK);
+        
         assert_eq!(*glass(true), GLASS_LIGHT);
         assert_eq!(*glass(false), GLASS_DARK);
     }
