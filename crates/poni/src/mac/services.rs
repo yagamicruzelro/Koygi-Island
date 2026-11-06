@@ -48,6 +48,19 @@ pub mod applemusic;
 pub mod lyrics;
 #[path = "../services/google.rs"]
 pub mod google;
+
+pub mod discord {
+    pub fn current_mic_peak() -> f32 {
+        0.0
+    }
+}
+
+pub mod audio_meter {
+    pub const NUM_BANDS: usize = 8;
+    pub fn current_bands() -> [f32; NUM_BANDS] {
+        [0.0; NUM_BANDS]
+    }
+}
 // So is the add-ons' downloader: the Mac offers every add-on with it.
 #[path = "../services/addons.rs"]
 pub mod addons;
