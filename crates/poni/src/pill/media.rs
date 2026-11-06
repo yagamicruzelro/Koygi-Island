@@ -171,7 +171,7 @@ pub(crate) fn middle(ui: &mut Ui, st: &AppState, body: Rect, x0: f32, x1: f32, a
     // text, so its layout doesn't change with the pill's width on each
     // frame of a morph, cut where the art and the bars are.
     let h = height(st);
-    let slot_w = (x1 - x0).max(0.0);
+    let _slot_w = (x1 - x0).max(0.0);
     let slot_cx = (x0 + x1) / 2.0;
     let area = Rect::new(slot_cx - (MAX_W - SIDES) / 2.0, body.center().y - h / 2.0, MAX_W - SIDES, h);
     ui.c.clip(Rect::new(x0, body.y, (x1 - x0).max(0.0), body.h));

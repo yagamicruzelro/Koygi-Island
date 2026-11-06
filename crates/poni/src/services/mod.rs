@@ -88,7 +88,7 @@ fn started<T, E: std::fmt::Display>(name: &str, r: Result<T, E>) -> Option<T> {
 }
 
 impl Services {
-    pub fn start(sink: &EventSink, _island: HWND, helper: HWND, settings: &Settings, activity: oyenza::Activity) -> Self {
+    pub fn start(sink: &EventSink, _island: HWND, helper: HWND, settings: &Settings, _activity: oyenza::Activity) -> Self {
         let media = started("media", media::MediaService::start(sink.clone()));
         let lyrics = started("lyrics", lyrics::LyricsService::start(sink.clone()));
         let audio = started("audio", audio::AudioService::start(sink.clone()));

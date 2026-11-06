@@ -464,7 +464,7 @@ pub(crate) fn draw_page(ui: &mut Ui, st: &mut AppState, area: Rect, page: PageKi
         PageKind::Addons => {
             let next = first_tab(st);
             st.page = next;
-            draw_page(ui, st, next, area);
+            draw_page(ui, st, area, next);
         }
         PageKind::Settings => settings::draw(ui, st, area),
     }
