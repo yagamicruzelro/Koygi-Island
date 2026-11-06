@@ -67,6 +67,9 @@ mod settings_host;
 mod settings_window;
 #[cfg(windows)]
 mod shell;
+#[cfg(target_os = "macos")]
+#[path = "mac/shell.rs"]
+mod shell;
 #[cfg(any(windows, target_os = "macos"))]
 mod state;
 #[cfg(windows)]
