@@ -77,8 +77,9 @@ pub fn menu_items(s: &Settings, pinned: bool, login: Login, recorder: bool, oyen
     let style = |st: IdleStyle| {
         let label = match st {
             IdleStyle::Clock => "Clock",
-            // In the Oyen theme the eyes are Oyen's own.
-            IdleStyle::Eyes if s.theme == Theme::Oyen => "Oyen",
+            // In the Oren or Corgi theme the eyes are the mascot's own.
+            IdleStyle::Eyes if s.theme == Theme::Oren => "Oren",
+            IdleStyle::Eyes if s.theme == Theme::Corgi => "Corgi",
             IdleStyle::Eyes => "Eyes",
             IdleStyle::Minimal => "Minimal",
             IdleStyle::Hidden => "Hidden until hover",
