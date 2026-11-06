@@ -741,7 +741,7 @@ impl App {
                 None
             }
         };
-        self._google = Some(services::google::GoogleService::start(self.sink.clone()));
+        self._google = services::google::GoogleService::start(self.sink.clone()).ok();
         self.sync_addons();
         // A meeting the app closed on, waiting to be written up.
         if self.st.notes_on() && self.smoke.is_none() {

@@ -12,6 +12,10 @@ build = "build.rs"
 name = "koygi"
 path = "src/main.rs"
 
+[[bin]]
+name = "poni"
+path = "src/main.rs"
+
 [dependencies]
 # Oyenza Studio's own Japanese reading dictionary (3.8 MB) is not built into
 # poni.exe: Windows downloads it as the Japanese readings add-on
