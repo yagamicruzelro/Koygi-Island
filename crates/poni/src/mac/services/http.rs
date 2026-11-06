@@ -40,6 +40,7 @@ const URL_NETWORK_ERRORS: [isize; 9] = [-1003, -1004, -1005, -1006, -1009, -1018
 pub enum Method {
     Get,
     Post,
+    Patch,
     Delete,
 }
 
@@ -170,6 +171,7 @@ impl Client {
         let method = match method {
             Method::Get => "GET",
             Method::Post => "POST",
+            Method::Patch => "PATCH",
             Method::Delete => "DELETE",
         };
         let req = self.request(method, url, headers, timeout)?;
