@@ -27,7 +27,7 @@ use serde_json::Value;
 
 /// Where the answers come from. The apps read `PONI_STOCKS_URL` to point a
 /// test build at another copy of the server.
-pub const BASE: &str = "https://oyenza.trade/dashboard/api/live/";
+pub const BASE: &str = "https://koygi.trade/dashboard/api/live/";
 /// The most stocks a list holds, besides the IHSG.
 pub const MAX: usize = 10;
 /// The index's code in answers and on the page. It always comes first.
@@ -1011,8 +1011,8 @@ mod tests {
         assert_eq!(next_ask(Some(15), 1), 15);
         assert_eq!(next_ask(Some(15), 3), 60);
         assert_eq!(next_ask(Some(15), 30), 600);
-        assert_eq!(watch_url(BASE, &["BBCA".into(), "TLKM".into()]), "https://oyenza.trade/dashboard/api/live/watch?s=BBCA,TLKM");
-        assert_eq!(chart_url(BASE, "IHSG"), "https://oyenza.trade/dashboard/api/live/chart?s=IHSG");
+        assert_eq!(watch_url(BASE, &["BBCA".into(), "TLKM".into()]), "https://koygi.trade/dashboard/api/live/watch?s=BBCA,TLKM");
+        assert_eq!(chart_url(BASE, "IHSG"), "https://koygi.trade/dashboard/api/live/chart?s=IHSG");
     }
 
     #[test]

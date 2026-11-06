@@ -47,9 +47,9 @@ pub enum PairCmd {
     Remove(String),
 }
 
-/// Requests for the Oyenza worker (`services::oyenza`).
+/// Requests for the Koygi worker (`services::koygi`).
 #[derive(Clone, Debug, PartialEq)]
-pub enum OyenzaCmd {
+pub enum KoygiCmd {
     /// Ask for a sign-in code to show.
     SignIn,
     /// Stop waiting for the code's approval.
@@ -60,7 +60,7 @@ pub enum OyenzaCmd {
     Note(String),
     /// Take back a spend just saved (its id).
     Undo(String),
-    /// The Oyenza tab opened: today's money and the bills, now.
+    /// The Koygi tab opened: today's money and the bills, now.
     Refresh,
     /// The Health tab opened: the steps from the phone, now (unless just asked for).
     RefreshHealth,
@@ -70,6 +70,7 @@ pub enum OyenzaCmd {
     /// Studio Pro, now (unless just asked).
     CheckPro,
 }
+pub type OyenzaCmd = KoygiCmd;
 
 /// Requests for Notifications (`services::notifications`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -237,6 +238,7 @@ pub enum Command {
     AllowFps,
     Phone(PhoneCmd),
     Pair(PairCmd),
+    Koygi(KoygiCmd),
     Oyenza(OyenzaCmd),
     Ielts(IeltsCmd),
     Notes(NotesCmd),

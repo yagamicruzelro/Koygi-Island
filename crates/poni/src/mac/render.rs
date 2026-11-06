@@ -322,10 +322,10 @@ impl Scene {
             Scene::PrayerPickerWorld => "page-prayer-picker-world".into(),
             Scene::PrayerWorld => "page-prayer-world".into(),
             Scene::HeadphonesHud => "headphones-hud".into(),
-            Scene::Oyenza => "page-oyenza".into(),
-            Scene::OyenzaSignedOut => "page-oyenza-signed-out".into(),
-            Scene::OyenzaCode => "page-oyenza-code".into(),
-            Scene::OyenzaNotice => "oyenza-notice".into(),
+            Scene::Oyenza => "page-koygi".into(),
+            Scene::OyenzaSignedOut => "page-koygi-signed-out".into(),
+            Scene::OyenzaCode => "page-koygi-code".into(),
+            Scene::OyenzaNotice => "koygi-notice".into(),
             Scene::SettingsSignedIn => "page-settings-signed-in".into(),
             Scene::TodayDay => "page-today-day".into(),
             Scene::TodayNoApps => "page-today-no-apps".into(),
@@ -361,7 +361,7 @@ pub fn run(dir: &str, args: &[String]) -> i32 {
     }
     let theme = match args.iter().position(|a| a == "--theme").and_then(|i| args.get(i + 1)).map(|s| s.as_str()) {
         Some("oren") | Some("oyen") => Theme::Oren,
-        Some("corgi") | Some("glass") => Theme::Corgi,
+        Some("corgi") => Theme::Corgi,
         Some("pill") => Theme::Pill,
         Some("oren-pill") | Some("oyen-pill") => Theme::OrenPill,
         Some("corgi-pill") => Theme::CorgiPill,
@@ -849,13 +849,13 @@ fn fake_release() -> poni_core::update::Release {
         *last += 1;
     }
     let version = parts.iter().map(u64::to_string).collect::<Vec<_>>().join(".");
-    let repo = "https://github.com/lucacadalora/oyenza-studio/releases";
+    let repo = "https://github.com/koygi/koygi/releases";
     poni_core::update::Release {
         date: "2026-10-27".into(),
         headline: "Updates install themselves on a Mac".into(),
         notes: format!("{repo}/tag/v{version}"),
         windows: None,
-        mac: Some(poni_core::update::Download { url: format!("{repo}/download/v{version}/Oyenza-Studio-{version}-mac.dmg"), size: 4_300_000, sha256: "0".repeat(64) }),
+        mac: Some(poni_core::update::Download { url: format!("{repo}/download/v{version}/Koygi-Island-{version}-mac.dmg"), size: 4_300_000, sha256: "0".repeat(64) }),
         version,
     }
 }
@@ -916,7 +916,7 @@ pub(crate) fn fake_oyenza(st: &AppState, connecting: bool) -> OyenzaState {
     seen.note(&before, st.now - 120.0);
     seen.note(&days, st.now - 12.0);
     let link = if connecting {
-        OyenzaLink::Connecting { code: "KPJX-TMNQ".into(), url: "https://oyenza.app/connect?code=KPJX-TMNQ".into(), until: st.now + 581.0 }
+        OyenzaLink::Connecting { code: "KPJX-TMNQ".into(), url: "https://koygi.app/connect?code=KPJX-TMNQ".into(), until: st.now + 581.0 }
     } else {
         OyenzaLink::Connected { account: "a\u{2022}\u{2022}\u{2022}@example.com".into() }
     };

@@ -41,7 +41,7 @@ impl JaDict {
     /// Load a dictionary packed by `tools/make_ja_dict.py` (the Japanese
     /// readings add-on's file; about 0.1 s in a release build).
     pub fn load(packed: &[u8]) -> Result<JaDict, String> {
-        let fail = |e: &dyn std::fmt::Display| format!("couldn't load Oyenza Studio's Japanese reading dictionary ({e})");
+        let fail = |e: &dyn std::fmt::Display| format!("couldn't load Koygi Island's Japanese reading dictionary ({e})");
         let mut raw = Vec::new();
         ruzstd::decoding::StreamingDecoder::new(packed).map_err(|e| fail(&e))?.read_to_end(&mut raw).map_err(|e| fail(&e))?;
         let dict = Dictionary::read(&raw[..]).map_err(|e| fail(&e))?;

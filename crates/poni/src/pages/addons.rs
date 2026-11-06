@@ -196,7 +196,7 @@ fn addon_row(ui: &mut Ui, st: &AppState, r: Rect, i: usize, a: &Addon, card: Opt
     let line_color = if status == Status::Failed { palette::ORANGE } else { palette::TEXT_DIM };
     // Screen recorder came on with the recorder, not by a click here: say so.
     let line = if a.id == addons::SCREEN_RECORDER.id && status == Status::Ready {
-        "On, since Oyenza Studio Recorder is installed".to_string()
+        "On, since Koygi Island Recorder is installed".to_string()
     } else {
         status.line(a, MAC)
     };
@@ -229,7 +229,7 @@ mod tests {
     use super::*;
     use poni_core::settings::Settings;
     use poni_core::store::Store;
-    use crate::state::OyenzaLink;
+    use crate::state::KoygiLink;
 
     #[test]
     fn every_row_offered_fits_the_page() {
@@ -240,7 +240,7 @@ mod tests {
         st.recorder = true;
         st.store.recorder_island = true;
         st.downloader_offered = true;
-        st.oyenza.link = OyenzaLink::Connected { account: "a•••@example.com".into() };
+        st.oyenza.link = KoygiLink::Connected { account: "a•••@example.com".into() };
         st.oyenza.pro = Some(true);
         assert_eq!(rows(&st).len(), without + 3);
         assert!(height(&st) <= MAX_H, "the window never grows for this page");
@@ -260,7 +260,7 @@ mod tests {
         st.addons.insert(DOWNLOADER.id, Status::Ready);
         assert!(pro_wanted(&st), "asked at sign-in, though not listed yet");
         let listed = |st: &AppState| rows(st).iter().any(|a| a.id == DOWNLOADER.id);
-        for (link, pro) in [(OyenzaLink::Off, None), (OyenzaLink::Connected { account: "a•••@example.com".into() }, None), (OyenzaLink::Connected { account: "a•••@example.com".into() }, Some(false))] {
+        for (link, pro) in [(KoygiLink::Off, None), (KoygiLink::Connected { account: "a•••@example.com".into() }, None), (KoygiLink::Connected { account: "a•••@example.com".into() }, Some(false))] {
             st.oyenza.link = link;
             st.oyenza.pro = pro;
             assert!(!listed(&st), "not listed without Pro ({pro:?})");

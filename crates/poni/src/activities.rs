@@ -538,20 +538,29 @@ pub fn draw_eyes(ui: &mut Ui, st: &AppState, cx: f32, cy: f32, look: f32) {
 
 /// Little equalizer (4 bars): animated while playing to real audio bands, low and static when paused.
 pub(crate) fn equalizer(ui: &mut Ui, r: Rect, color: Color, playing: bool, t: f64) {
-    let n = 8;
-    let gap = 1.8;
+    let color = ui.c.look().guard_accent(color);
+    let n = if r.w <= 24.0 { 4 } else { 8 };
+    let gap = if n == 4 { 2.0 } else { 1.8 };
     let bw = (r.w - gap * (n as f32 - 1.0)) / n as f32;
     let bands = if playing {
         crate::services::audio_meter::current_bands()
     } else {
         [0.0; 8]
     };
+    let all_zero = bands.iter().all(|&b| b <= 0.001);
     for i in 0..n {
         let band_val = bands[i];
         let amp = if playing {
-            let phase = i as f64 * 0.75;
-            let ripple = ((t * 8.0 + phase).sin() * 0.07) as f32;
-            (band_val + ripple * (1.0 - band_val)).clamp(0.06, 1.0)
+            if all_zero {
+                // Procedural dynamic wave animation when audio bands are 0.0 (e.g. on macOS)
+                let phase = i as f64 * 1.2;
+                let wave = ((t * 4.0 + phase).sin() * 0.35 + (t * 2.5 - phase * 0.5).cos() * 0.15 + 0.55).clamp(0.2, 0.95) as f32;
+                wave
+            } else {
+                let phase = i as f64 * 0.75;
+                let ripple = ((t * 8.0 + phase).sin() * 0.07) as f32;
+                (band_val + ripple * (1.0 - band_val)).clamp(0.06, 1.0)
+            }
         } else {
             0.10
         };
@@ -562,7 +571,7 @@ pub(crate) fn equalizer(ui: &mut Ui, r: Rect, color: Color, playing: bool, t: f6
 }
 
 /// Album art (or a note glyph), dimmed while the player is paused.
-fn art_or_icon(ui: &mut Ui, st: &AppState, r: Rect, playing: bool) {
+pub(crate) fn art_or_icon(ui: &mut Ui, st: &AppState, r: Rect, playing: bool) {
     let art = st.media.as_ref().and_then(|m| m.art.as_ref());
     ui.c.with_alpha(if playing { 1.0 } else { 0.55 }, |c| match art {
         Some(art) => c.image(art, r, 6.0),

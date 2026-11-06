@@ -47,7 +47,7 @@ use std::time::{Duration, Instant};
 use pure::{duration_secs, is_fresh, lyrics_for, prune_victims, retry_delay, usable, CacheEntry};
 
 // LRCLIB asks apps to say who they are.
-const USER_AGENT: &str = concat!("OyenzaStudio/", env!("CARGO_PKG_VERSION"), " (+https://github.com/lucacadalora/oyenza-studio)");
+const USER_AGENT: &str = concat!("koygi/", env!("CARGO_PKG_VERSION"), " (+https://github.com/koygi/koygi)");
 const SOURCE: &str = "LRCLIB";
 const APPLE_SOURCE: &str = "Apple Music";
 /// Minimum gap between two requests to LRCLIB.

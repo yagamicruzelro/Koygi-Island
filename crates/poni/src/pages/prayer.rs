@@ -86,17 +86,17 @@ const FOOT_H: f32 = 28.0;
 const SEARCH_H: f32 = 32.0;
 const RESULT_H: f32 = 26.0;
 const RESULTS: usize = 8;
-const QURAN: &str = "https://quran.oyenza.com";
-/// Where location is allowed for Oyenza Studio: Windows' Settings › Privacy &
+const QURAN: &str = "https://quran.com";
+/// Where location is allowed for Koygi Island: Windows' Settings › Privacy &
 /// security › Location, or the Mac's System Settings › Privacy & Security ›
 /// Location Services.
 const LOCATION_SETTINGS: &str =
     if cfg!(windows) { "ms-settings:privacy-location" } else { "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices" };
 /// The picker's line when location is off, or when the system couldn't say.
 const DENIED_HINT: &str = if cfg!(windows) {
-    "Windows' location is off for Oyenza Studio. Turn it on to find your place, or type it."
+    "Windows' location is off for Koygi Island. Turn it on to find your place, or type it."
 } else {
-    "Location Services is off for Oyenza Studio. Turn it on to find your place, or type it."
+    "Location Services is off for Koygi Island. Turn it on to find your place, or type it."
 };
 const UNKNOWN_HINT: &str =
     if cfg!(windows) { "Windows couldn't tell where this PC is. Type your city." } else { "macOS couldn't tell where this Mac is. Type your city." };

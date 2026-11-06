@@ -66,7 +66,7 @@ const FIRST_WORD: Duration = Duration::from_secs(2);
 /// of those the app stops asking for the run.
 const FAILED_START: Duration = Duration::from_secs(5);
 const MAX_FAILS: u32 = 3;
-const USER_AGENT: &str = "Poni/0.1 (+https://github.com/lucacadalora/oyenza-studio)";
+const USER_AGENT: &str = concat!("koygi/", env!("CARGO_PKG_VERSION"), " (+https://github.com/koygi/koygi)");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Player {
@@ -656,7 +656,7 @@ impl Worker {
         match osascript(script) {
             Err(e) if e.contains("-1743") => {
                 if self.denied_at[p.index()].replace(Instant::now()).is_none() {
-                    pinfo!("media: macOS doesn't let Oyenza Studio control {} (System Settings > Privacy & Security > Automation)", p.name());
+                    pinfo!("media: macOS doesn't let Koygi Island control {} (System Settings > Privacy & Security > Automation)", p.name());
                 }
                 Err(e)
             }

@@ -164,6 +164,95 @@ impl Color {
             self
         }
     }
+
+    /// Converts an sRGB channel component in [0.0, 1.0] to linear light.
+    #[inline]
+    pub fn srgb_to_linear(c: f32) -> f32 {
+        let c = c.clamp(0.0, 1.0);
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    }
+
+    /// WCAG 2.1 relative luminance in [0.0, 1.0] using exact sRGB linearization.
+    #[inline]
+    pub fn relative_luminance(&self) -> f32 {
+        0.2126 * Self::srgb_to_linear(self.r)
+            + 0.7152 * Self::srgb_to_linear(self.g)
+            + 0.0722 * Self::srgb_to_linear(self.b)
+    }
+
+    /// WCAG 2.1 contrast ratio between two colors in [1.0, 21.0].
+    #[inline]
+    pub fn contrast_ratio(a: Color, b: Color) -> f32 {
+        let l1 = a.relative_luminance();
+        let l2 = b.relative_luminance();
+        let (hi, lo) = if l1 >= l2 { (l1, l2) } else { (l2, l1) };
+        (hi + 0.05) / (lo + 0.05)
+    }
+
+    /// Adaptively adjust accent contrast against `ground` to meet at least `min_ratio` (e.g. 3.5:1).
+    /// On light grounds (L_g >= 0.25), performs binary search scaling factor k in [0.0, 1.0] on RGB,
+    /// strictly preserving color hue.
+    /// On dark grounds (L_g < 0.25), lifts towards white if contrast is below min_ratio.
+    /// Preserves original alpha.
+    pub fn adapt_contrast(self, ground: Color, min_ratio: f32) -> Color {
+        let l_g = ground.relative_luminance();
+        let l_c = self.relative_luminance();
+
+        let (hi, lo) = if l_c >= l_g { (l_c, l_g) } else { (l_g, l_c) };
+        if (hi + 0.05) / (lo + 0.05) >= min_ratio {
+            return self;
+        }
+
+        if l_g >= 0.25 {
+            let mut lo = 0.0f32;
+            let mut hi = 1.0f32;
+            let mut best_k = 0.0f32;
+            for _ in 0..20 {
+                let mid = (lo + hi) * 0.5;
+                let test_l = 0.2126 * Self::srgb_to_linear(self.r * mid)
+                    + 0.7152 * Self::srgb_to_linear(self.g * mid)
+                    + 0.0722 * Self::srgb_to_linear(self.b * mid);
+                let cr = (l_g + 0.05) / (test_l + 0.05);
+                if cr >= min_ratio {
+                    best_k = mid;
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+            }
+            Color::rgba(self.r * best_k, self.g * best_k, self.b * best_k, self.a)
+        } else {
+            let mut lo = 0.0f32;
+            let mut hi = 1.0f32;
+            let mut best_t = 1.0f32;
+            for _ in 0..20 {
+                let mid = (lo + hi) * 0.5;
+                let tr = self.r + (1.0 - self.r) * mid;
+                let tg = self.g + (1.0 - self.g) * mid;
+                let tb = self.b + (1.0 - self.b) * mid;
+                let test_l = 0.2126 * Self::srgb_to_linear(tr)
+                    + 0.7152 * Self::srgb_to_linear(tg)
+                    + 0.0722 * Self::srgb_to_linear(tb);
+                let cr = (test_l + 0.05) / (l_g + 0.05);
+                if cr >= min_ratio {
+                    best_t = mid;
+                    hi = mid;
+                } else {
+                    lo = mid;
+                }
+            }
+            Color::rgba(
+                self.r + (1.0 - self.r) * best_t,
+                self.g + (1.0 - self.g) * best_t,
+                self.b + (1.0 - self.b) * best_t,
+                self.a,
+            )
+        }
+    }
 }
 
 /// The island palette. The island itself is pure black; content is white at

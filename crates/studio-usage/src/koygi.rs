@@ -19,10 +19,10 @@ use serde_json::Value;
 
 /// Where Studio asks. A test build points [`URL_VAR`] at another copy of the
 /// server, the way `PONI_STOCKS_URL` does for Stocks.
-pub const BASE: &str = "https://inference.oyenza.com";
+pub const BASE: &str = "https://inference.koygi.com";
 pub const URL_VAR: &str = "PONI_INFERENCE_URL";
 /// The name the key is kept under ([`Want::Secret`]).
-pub const SECRET: &str = "oyenza-inference";
+pub const SECRET: &str = "koygi-inference";
 /// What the start request calls this app.
 const APP: &str = "studio";
 /// The spend the summary carries, as the card labels it: the UTC day so far,
@@ -32,11 +32,14 @@ const SPEND: [(&str, &str); 3] = [("Today", "today_usd"), ("7 days", "week_usd")
 /// The card. No `takes_key`: the key comes from Connect, never from a field
 /// (the dashboard never shows it), so the tab offers Connect for
 /// [`Trouble::NeedsKey`].
-pub struct Oyenza;
+pub struct Koygi;
+pub type Oyenza = Koygi;
+#[allow(non_upper_case_globals)]
+pub const Oyenza: Koygi = Koygi;
 
-impl Provider for Oyenza {
+impl Provider for Koygi {
     fn id(&self) -> ProviderId {
-        ProviderId::Oyenza
+        ProviderId::Koygi
     }
 
     fn env(&self) -> &'static [&'static str] {
@@ -120,7 +123,7 @@ pub fn read_summary(r: &Result<Reply, NetFail>, now: i64) -> Outcome {
 }
 
 fn parse_summary(v: &Value, now: i64) -> Option<Snapshot> {
-    let mut s = Snapshot::new(ProviderId::Oyenza, v.get("as_of").and_then(time).unwrap_or(now), Source::Online);
+    let mut s = Snapshot::new(ProviderId::Koygi, v.get("as_of").and_then(time).unwrap_or(now), Source::Online);
     s.plan = v.get("tier").and_then(Value::as_str).and_then(plan_name).map(String::from);
     s.account = v.get("account").and_then(Value::as_str).map(mask_email).filter(|a| !a.is_empty());
     s.balance = v.get("balance_usd").and_then(num).map(Money::usd);
@@ -179,7 +182,7 @@ pub fn start_request(base: &str, device: &str, os: Os, version: &str) -> Request
         Os::Windows => "windows",
         Os::Mac => "mac",
     };
-    let body = serde_json::json!({ "device": poni_core::oyenza::pc_name(device), "os": os, "app": APP, "version": version });
+    let body = serde_json::json!({ "device": poni_core::koygi::pc_name(device), "os": os, "app": APP, "version": version });
     Request::post_json(format!("{base}/v1/studio/connect/start"), body.to_string())
 }
 
@@ -417,10 +420,10 @@ pub fn connected_text(account: &str) -> String {
 pub fn connect_failure_text(code: &str) -> (&'static str, &'static str) {
     match code {
         EXPIRED => ("Code expired", "Connect again for a new one"),
-        DENIED => ("Not connected", "The code was refused on inference.oyenza.com"),
-        OFFLINE => ("Can't reach Oyenza Inference", "Check the connection and try again"),
+        DENIED => ("Not connected", "The code was refused on inference.koygi.com"),
+        OFFLINE => ("Can't reach Koygi Inference", "Check the connection and try again"),
         BUSY => ("Too many tries", "Wait a few minutes, then connect again"),
-        SOON => ("Coming soon", "Oyenza Inference can't connect apps yet"),
+        SOON => ("Coming soon", "Koygi Inference can't connect apps yet"),
         UNTOLD => ("Disconnected here only", "Remove this computer under Connected apps too"),
         _ => ("Couldn't connect", "Try again in a minute"),
     }
@@ -431,18 +434,18 @@ pub fn connect_failure_text(code: &str) -> (&'static str, &'static str) {
 pub fn refused_text(why: Refusal) -> (&'static str, &'static str) {
     match why {
         Refusal::Key => ("No longer connected", "This computer was disconnected from your account"),
-        Refusal::Disabled => ("Account switched off", "Write to hello@oyenza.com"),
+        Refusal::Disabled => ("Account switched off", "Write to hello@koygi.com"),
     }
 }
 
 /// The nudge's short form, for a notice's second line.
-pub const NUDGE: &str = "Keep going on Oyenza Inference";
+pub const NUDGE: &str = "Keep going on Koygi Inference";
 
 /// The line under a plan that ran out: "Out of Claude Code until 14:20? Keep
 /// going on Oyenza Inference." `until` is its reset as the card says it
 /// ("14:20", "Thu"). None for Oyenza Inference itself.
 pub fn nudge(out: ProviderId, until: Option<&str>) -> Option<String> {
-    if out == ProviderId::Oyenza {
+    if out == ProviderId::Koygi {
         return None;
     }
     let until = until.map(str::trim).filter(|u| !u.is_empty()).map(|u| format!(" until {u}")).unwrap_or_default();
@@ -454,10 +457,10 @@ mod tests {
     use super::*;
     use crate::MAX_FETCHES;
 
-    const SUMMARY: &str = include_str!("fixtures/oyenza/summary.json");
-    const ZEROS: &str = include_str!("fixtures/oyenza/summary-zeros.json");
-    const START: &str = include_str!("fixtures/oyenza/start.json");
-    const APPROVED: &str = include_str!("fixtures/oyenza/token-approved.json");
+    const SUMMARY: &str = include_str!("fixtures/koygi/summary.json");
+    const ZEROS: &str = include_str!("fixtures/koygi/summary-zeros.json");
+    const START: &str = include_str!("fixtures/koygi/start.json");
+    const APPROVED: &str = include_str!("fixtures/koygi/token-approved.json");
     const KEY: &str = "oyis_test-token";
     /// 2026-10-27T05:00:00Z, the fixtures' `as_of`.
     const NOW: i64 = 1_793_077_200;
@@ -477,7 +480,7 @@ mod tests {
         let cx = Ctx { dirs, got: &got, now: NOW, reach };
         let (mut replies, mut asked) = (Vec::new(), Vec::new());
         loop {
-            match Oyenza.next(&cx, &replies) {
+            match Koygi.next(&cx, &replies) {
                 Step::Read(w) => panic!("this service never reads in steps: {w:?}"),
                 Step::Run(c) => panic!("this service never runs programs: {c:?}"),
                 Step::Done(o) => return (o, asked),
@@ -503,13 +506,13 @@ mod tests {
     #[test]
     fn asks_for_its_key_on_both_systems() {
         for os in [Os::Windows, Os::Mac] {
-            assert_eq!(Oyenza.wants(&Dirs::sample(os)), [Want::Secret("oyenza-inference")]);
+            assert_eq!(Koygi.wants(&Dirs::sample(os)), [Want::Secret("koygi-inference")]);
         }
-        assert_eq!(Oyenza.id(), ProviderId::Oyenza);
-        assert_eq!(Oyenza.env(), ["PONI_INFERENCE_URL"]);
-        assert_eq!(Oyenza.min_gap_s(), 60);
+        assert_eq!(Koygi.id(), ProviderId::Koygi);
+        assert_eq!(Koygi.env(), ["PONI_INFERENCE_URL"]);
+        assert_eq!(Koygi.min_gap_s(), 60);
         // Connect, not a field to paste a key into.
-        assert_eq!(Oyenza.takes_key(), None);
+        assert_eq!(Koygi.takes_key(), None);
     }
 
     #[test]
@@ -530,10 +533,10 @@ mod tests {
         let (o, asked) = refresh(&Dirs::sample(Os::Mac), key(), Reach::Online, &|_| reply(200, SUMMARY));
         assert_eq!(asked.len(), 1);
         assert_eq!(asked[0].method, crate::Method::Get);
-        assert_eq!(asked[0].url, "https://inference.oyenza.com/v1/studio/summary");
+        assert_eq!(asked[0].url, "https://inference.koygi.com/v1/studio/summary");
         assert_eq!(asked[0].headers, [("Authorization".to_string(), "Bearer oyis_test-token".to_string())]);
         let s = o.unwrap();
-        assert_eq!((s.provider, s.source, s.as_of), (ProviderId::Oyenza, Source::Online, NOW));
+        assert_eq!((s.provider, s.source, s.as_of), (ProviderId::Koygi, Source::Online, NOW));
         assert_eq!(s.plan.as_deref(), Some("Trial"));
         assert_eq!(s.account.as_deref(), Some("a•••@example.com"));
         assert_eq!(s.balance, Some(Money::usd(4.2)));
@@ -588,7 +591,7 @@ mod tests {
         assert_eq!(refusal(&r(403, off)), Some(Refusal::Disabled));
         assert_eq!(refusal(&r(403, "<html>")), Some(Refusal::Key));
         assert_eq!(refusal(&r(200, off)), None);
-        assert_eq!(refused_text(Refusal::Disabled), ("Account switched off", "Write to hello@oyenza.com"));
+        assert_eq!(refused_text(Refusal::Disabled), ("Account switched off", "Write to hello@koygi.com"));
         assert_eq!(refused_text(Refusal::Key).0, "No longer connected");
     }
 
@@ -626,7 +629,7 @@ mod tests {
             assert_eq!(base(Some(good)), good);
         }
         // Plain http anywhere but this computer would send the key in the clear.
-        for bad in ["", "ftp://example.com", "inference.example.com", "https://", "https:///", "http://a b", "http://example.com", "http://192.168.1.5:8090", "http://localhost.example.com", "http://localhost:1@evil.example/", "https://user@inference.oyenza.com"] {
+        for bad in ["", "ftp://example.com", "inference.example.com", "https://", "https:///", "http://a b", "http://example.com", "http://192.168.1.5:8090", "http://localhost.example.com", "http://localhost:1@evil.example/", "https://user@inference.koygi.com"] {
             assert_eq!(base(Some(bad)), BASE, "{bad}");
         }
     }
@@ -634,7 +637,7 @@ mod tests {
     #[test]
     fn connect_requests() {
         let start = start_request(BASE, "  DESKTOP-7Q2K\n", Os::Windows, "0.2.11");
-        assert_eq!((start.method, start.url.as_str()), (crate::Method::Post, "https://inference.oyenza.com/v1/studio/connect/start"));
+        assert_eq!((start.method, start.url.as_str()), (crate::Method::Post, "https://inference.koygi.com/v1/studio/connect/start"));
         let body: Value = serde_json::from_str(start.json.as_deref().unwrap()).unwrap();
         assert_eq!(body, serde_json::json!({ "device": "DESKTOP-7Q2K", "os": "windows", "app": "studio", "version": "0.2.11" }));
         assert!(!start.headers.iter().any(|(k, _)| k == "Authorization"));
@@ -645,11 +648,11 @@ mod tests {
 
         let p = started(&reply(200, START), BASE, NOW).unwrap();
         let ask = p.ask(BASE);
-        assert_eq!(ask.url, "https://inference.oyenza.com/v1/studio/connect/token");
+        assert_eq!(ask.url, "https://inference.koygi.com/v1/studio/connect/token");
         assert_eq!(ask.json.as_deref(), Some(r#"{"poll":"test-poll-token"}"#));
 
         let bye = disconnect_request(BASE, KEY);
-        assert_eq!((bye.method, bye.url.as_str(), bye.json.as_deref()), (crate::Method::Post, "https://inference.oyenza.com/v1/studio/disconnect", Some("{}")));
+        assert_eq!((bye.method, bye.url.as_str(), bye.json.as_deref()), (crate::Method::Post, "https://inference.koygi.com/v1/studio/disconnect", Some("{}")));
         assert!(bye.headers.contains(&("Authorization".into(), "Bearer oyis_test-token".into())));
         assert!(disconnected(&reply(200, r#"{"ok":true}"#)));
         assert!(disconnected(&reply(401, r#"{"error":"invalid_key"}"#)));
@@ -660,7 +663,7 @@ mod tests {
     #[test]
     fn a_code_to_show() {
         let p = started(&reply(200, START), BASE, NOW).unwrap();
-        assert_eq!((p.code.as_str(), p.url.as_str()), ("KPJX-TMNQ", "https://inference.oyenza.com/app/connect?code=KPJXTMNQ"));
+        assert_eq!((p.code.as_str(), p.url.as_str()), ("KPJX-TMNQ", "https://inference.koygi.com/app/connect?code=KPJXTMNQ"));
         assert_eq!((p.expires_at, p.next_at, p.every_s), (NOW + 600, NOW + 5, 5));
         assert_eq!(p.wait_s(NOW), Some(5));
         assert!(format!("{p:?}").contains("KPJX-TMNQ") && !format!("{p:?}").contains("test-poll-token"));
@@ -668,7 +671,7 @@ mod tests {
         // opened, the page the contract names is.
         let odd = r#"{"code":"zxwv tsrq","poll":"p","url":"https://elsewhere.example/connect","interval":1,"expires_in":99999}"#;
         let q = started(&reply(200, odd), BASE, NOW).unwrap();
-        assert_eq!((q.code.as_str(), q.url.as_str()), ("ZXWV-TSRQ", "https://inference.oyenza.com/app/connect?code=ZXWVTSRQ"));
+        assert_eq!((q.code.as_str(), q.url.as_str()), ("ZXWV-TSRQ", "https://inference.koygi.com/app/connect?code=ZXWVTSRQ"));
         assert_eq!((q.every_s, q.expires_at), (2, NOW + 1800));
         let bare = started(&reply(200, r#"{"code":"BCDFGHJK","poll":"p"}"#), "http://127.0.0.1:8090", NOW).unwrap();
         assert_eq!((bare.url.as_str(), bare.every_s, bare.expires_at), ("http://127.0.0.1:8090/app/connect?code=BCDFGHJK", 5, NOW + 600));
@@ -683,7 +686,7 @@ mod tests {
         assert_eq!(starts(Ok(Reply { status: 429, body: String::new(), retry_after_s: Some(300) })), Some(BUSY));
         assert_eq!(starts(reply(502, "<html>")), Some(OFFLINE));
         assert_eq!(starts(reply(404, "{}")), Some(SOON));
-        assert_eq!(connect_failure_text(SOON), ("Coming soon", "Oyenza Inference can't connect apps yet"));
+        assert_eq!(connect_failure_text(SOON), ("Coming soon", "Koygi Inference can't connect apps yet"));
         assert_eq!(starts(reply(403, "{}")), Some(OTHER));
         assert_eq!(starts(reply(200, "<html>")), Some(OTHER));
         assert_eq!(starts(reply(200, r#"{"code":"KPJ","poll":"p"}"#)), Some(OTHER));
@@ -756,10 +759,10 @@ mod tests {
     #[test]
     fn the_cards_words() {
         assert_eq!(CONNECT, "Connect");
-        assert_eq!(approve_text("KPJX-TMNQ", BASE), "Approve KPJX-TMNQ on inference.oyenza.com");
+        assert_eq!(approve_text("KPJX-TMNQ", BASE), "Approve KPJX-TMNQ on inference.koygi.com");
         assert_eq!(approve_text("KPJX-TMNQ", "http://127.0.0.1:8090"), "Approve KPJX-TMNQ on 127.0.0.1:8090");
         let p = started(&reply(200, START), BASE, NOW).unwrap();
-        assert_eq!(approve_text(&p.code, &p.url), "Approve KPJX-TMNQ on inference.oyenza.com");
+        assert_eq!(approve_text(&p.code, &p.url), "Approve KPJX-TMNQ on inference.koygi.com");
         assert_eq!(time_left(NOW + 581, NOW), "9:41");
         assert_eq!(time_left(NOW, NOW + 3), "0:00");
         assert_eq!(connected_text("l•••@example.com"), "Connected as l•••@example.com");
@@ -767,12 +770,12 @@ mod tests {
         assert_eq!(connected_text(" "), "Connected");
         assert_eq!(CONNECT_AGAIN, "Connect again");
         assert_eq!(connect_failure_text(DENIED).0, "Not connected");
-        assert_eq!(connect_failure_text(OFFLINE).0, "Can't reach Oyenza Inference");
+        assert_eq!(connect_failure_text(OFFLINE).0, "Can't reach Koygi Inference");
         assert_eq!(connect_failure_text(BUSY).0, "Too many tries");
         assert_eq!(connect_failure_text("whatever").0, "Couldn't connect");
-        assert_eq!(nudge(ProviderId::Claude, Some("14:20")).as_deref(), Some("Out of Claude Code until 14:20? Keep going on Oyenza Inference."));
-        assert_eq!(nudge(ProviderId::Codex, Some(" ")).as_deref(), Some("Out of Codex? Keep going on Oyenza Inference."));
-        assert_eq!(nudge(ProviderId::Oyenza, None), None);
+        assert_eq!(nudge(ProviderId::Claude, Some("14:20")).as_deref(), Some("Out of Claude Code until 14:20? Keep going on Koygi Inference."));
+        assert_eq!(nudge(ProviderId::Codex, Some(" ")).as_deref(), Some("Out of Codex? Keep going on Koygi Inference."));
+        assert_eq!(nudge(ProviderId::Koygi, None), None);
         let mut words = vec![CONNECT, CONNECT_LINE, STARTING, CONNECT_AGAIN, DISCONNECT, NUDGE, refused_text(Refusal::Key).0, refused_text(Refusal::Key).1];
         for code in [EXPIRED, DENIED, OFFLINE, BUSY, OTHER, UNTOLD] {
             words.extend([connect_failure_text(code).0, connect_failure_text(code).1]);

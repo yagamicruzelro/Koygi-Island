@@ -14,7 +14,7 @@
 	<key>CFBundleIconFile</key>
 	<string>OyenzaStudio</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.ryo.koygi-island</string>
+	<string>com.koygi.island</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>

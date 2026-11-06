@@ -270,8 +270,7 @@ pub fn of(theme: Theme) -> &'static Look {
 
 /// The theme's look on a screen where the island wraps a camera notch (the
 /// Mac app on a MacBook): the island meets black hardware there, so Oyen
-/// goes black and Glass is the dark glass (with a black strip where it
-/// touches the notch, drawn by the Mac app).
+/// goes black.
 pub fn around_notch(theme: Theme) -> &'static Look {
     match theme {
         Theme::Classic => &CLASSIC,
@@ -301,6 +300,12 @@ impl Look {
     /// The colour to paint for text (and icons) the page asked for in `c`.
     pub fn paint_text(&self, c: Color) -> Color {
         self.map(c, true)
+    }
+
+    /// Guard an accent color against this look's ground color to ensure at least 3.5:1 contrast ratio.
+    #[inline]
+    pub fn guard_accent(&self, accent: Color) -> Color {
+        accent.adapt_contrast(self.ground, 3.5)
     }
 
     fn map(&self, c: Color, text: bool) -> Color {

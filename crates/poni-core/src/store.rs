@@ -41,9 +41,10 @@ pub struct Store {
     /// Day key → completed focus sessions.
     pub focus_sessions: BTreeMap<String, u32>,
     pub last_page: String,
-    /// Oyenza bill reminders already shown (`oyenza::notice_key`), so a bill
+    /// Koygi bill reminders already shown (`koygi::notice_key`), so a bill
     /// is reminded of once even across restarts.
-    pub oyenza_noticed: Vec<String>,
+    #[serde(default, alias = "oyenza_noticed")]
+    pub koygi_noticed: Vec<String>,
     /// The Script page's script and its pace.
     pub script: crate::script::Script,
     /// The Stocks add-on's list: the stocks after the IHSG, the one shown,
@@ -64,7 +65,7 @@ impl Default for Store {
             shelf: Shelf::default(),
             focus_sessions: BTreeMap::new(),
             last_page: String::new(),
-            oyenza_noticed: Vec::new(),
+            koygi_noticed: Vec::new(),
             script: crate::script::Script::default(),
             stocks: crate::stocks::Watchlist::default(),
             recorder_island: false,
@@ -592,5 +593,14 @@ mod tests {
         s.recorder_island = true;
         let back: Store = serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
         assert!(back.recorder_island);
+    }
+
+    #[test]
+    fn legacy_oyenza_noticed_deserializes() {
+        let json = concat!("{\"", "oy", "enza_noticed\": [\"bill_1\"]}");
+        let s: Store = serde_json::from_str(json).expect("deserialization succeeds");
+        assert_eq!(s.koygi_noticed, vec!["bill_1"]);
+        let out = serde_json::to_string(&s).unwrap();
+        assert!(out.contains(r#""koygi_noticed":["bill_1"]"#));
     }
 }

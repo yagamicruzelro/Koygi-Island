@@ -47,7 +47,8 @@ pub mod kimi;
 pub mod minimax;
 pub mod opencode;
 pub mod openrouter;
-pub mod oyenza;
+pub mod koygi;
+pub use koygi as oyenza;
 pub mod pace;
 pub mod safe_storage;
 pub mod zai;
@@ -81,10 +82,17 @@ pub enum ProviderId {
     MiniMax,
     OpenRouter,
     /// inference.oyenza.com: the person's balance and spend, once connected.
-    Oyenza,
+    #[serde(alias = "oyenza")]
+    Koygi,
 }
 
+#[allow(non_upper_case_globals)]
+pub const Oyenza: ProviderId = ProviderId::Koygi;
+
 impl ProviderId {
+    #[allow(non_upper_case_globals)]
+    pub const Oyenza: ProviderId = ProviderId::Koygi;
+
     pub const ALL: [ProviderId; 12] = [
         ProviderId::Codex,
         ProviderId::Claude,
@@ -97,7 +105,7 @@ impl ProviderId {
         ProviderId::Zai,
         ProviderId::MiniMax,
         ProviderId::OpenRouter,
-        ProviderId::Oyenza,
+        ProviderId::Koygi,
     ];
 
     /// Stable key: settings, the log, fixture folders.
@@ -114,7 +122,7 @@ impl ProviderId {
             ProviderId::Zai => "zai",
             ProviderId::MiniMax => "minimax",
             ProviderId::OpenRouter => "openrouter",
-            ProviderId::Oyenza => "oyenza",
+            ProviderId::Koygi => "koygi",
         }
     }
 
@@ -132,11 +140,14 @@ impl ProviderId {
             ProviderId::Zai => "Z.ai GLM",
             ProviderId::MiniMax => "MiniMax",
             ProviderId::OpenRouter => "OpenRouter",
-            ProviderId::Oyenza => "Oyenza Inference",
+            ProviderId::Koygi => "Koygi Inference",
         }
     }
 
     pub fn from_key(key: &str) -> Option<ProviderId> {
+        if key == "oyenza" {
+            return Some(ProviderId::Koygi);
+        }
         ProviderId::ALL.into_iter().find(|p| p.key() == key)
     }
 }
@@ -535,7 +546,7 @@ pub fn all() -> [&'static dyn Provider; 12] {
         &zai::Zai,
         &minimax::MiniMax,
         &openrouter::OpenRouter,
-        &oyenza::Oyenza,
+        &koygi::Koygi,
     ]
 }
 

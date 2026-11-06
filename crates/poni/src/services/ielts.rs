@@ -30,7 +30,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
-const USER_AGENT: &str = concat!("OyenzaStudio/", env!("CARGO_PKG_VERSION"), " (+https://github.com/lucacadalora/oyenza-studio)");
+const USER_AGENT: &str = concat!("koygi/", env!("CARGO_PKG_VERSION"), " (+https://github.com/koygi/koygi)");
 const ME_TIMEOUT: Duration = Duration::from_secs(10);
 /// A new session's first turn is voiced before it comes back.
 const START_TIMEOUT: Duration = Duration::from_secs(30);

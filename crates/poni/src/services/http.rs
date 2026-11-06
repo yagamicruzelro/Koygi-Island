@@ -609,7 +609,7 @@ mod cache_tests {
         let run = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
         let url = format!("http://127.0.0.1:{port}/island/bills?tz=%2B07%3A00&days=35&run={run}");
         let _com = MtaGuard::new();
-        let client = Client::new("OyenzaStudio/test").expect("a client");
+        let client = Client::new("KoygiIsland/test").expect("a client");
         let bodies = (0..2)
             .map(|_| client.send(Method::Get, &url, &[("Authorization", "Bearer oyzd_test")], None, DEFAULT_TIMEOUT).expect("an answer").body)
             .collect();

@@ -84,9 +84,9 @@ pub enum LyricsResult {
     Error(String),
 }
 
-/// What the Oyenza worker reports (`services::oyenza`).
+/// What the Koygi worker reports (`services::koygi`).
 #[derive(Clone, Debug)]
-pub enum OyenzaEvent {
+pub enum KoygiEvent {
     /// The sign-in saved on this PC was found at start (no notice).
     Restored { account: String },
     /// A sign-in code to show, the oyenza.app address that takes it, and how long it lasts.
@@ -97,14 +97,14 @@ pub enum OyenzaEvent {
     ConnectCancelled,
     /// Money that just arrived or went out by itself (oldest first).
     Money { arrived: Vec<Arrival> },
-    /// The last 7 days of transactions, for the Oyenza page (while it's open).
+    /// The last 7 days of transactions, for the Koygi page (while it's open).
     Activity(Activity),
     /// Asked again while the page is open: nothing changed.
     ActivityChecked,
     /// Bills due in the next 30 days, and the server's today (YYYY-MM-DD).
     Bills { today: String, bills: Vec<Bill> },
     /// The steps the phone sent, for the Health page; None: none to show (off in
-    /// Oyenza on the phone, or a server from before steps).
+    /// Koygi on the phone, or a server from before steps).
     Health(Option<HealthSnapshot>),
     /// The day for the Today page, from the apps switched on in oyenza.app (asked
     /// while the page is on screen).
@@ -124,6 +124,7 @@ pub enum OyenzaEvent {
     /// Signed out: from the tray, or by the server (disconnected in oyenza.app).
     Disconnected { by_server: bool },
 }
+pub type OyenzaEvent = KoygiEvent;
 
 pub enum AppEvent {
     /// The current media session changed (None = nothing playing / no session).
@@ -168,6 +169,7 @@ pub enum AppEvent {
     Phone(poni_core::phonedrop::Event),
     /// Paired phones: pairing done, the list changed, files from a phone.
     Paired(poni_core::pairdrop::MeetEvent),
+    Koygi(KoygiEvent),
     Oyenza(OyenzaEvent),
     GoogleTasks(Vec<crate::services::google::GoogleTaskItem>),
     GmailUnread(usize),

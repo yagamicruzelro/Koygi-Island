@@ -370,6 +370,7 @@ fn draw_art(ui: &mut Ui, st: &AppState, r: Rect, alpha: f32) {
 /// music plays, all low and still while it's paused (`level` eases from
 /// one to the other).
 fn equalizer(ui: &mut Ui, x: f32, cy: f32, color: Color, level: f32, moving: bool, t: f64) {
+    let color = ui.c.look().guard_accent(color);
     let s = ui.c.scale().max(0.1);
     let bands = if moving {
         crate::services::audio_meter::current_bands()
@@ -466,18 +467,18 @@ mod tests {
     #[test]
     fn the_pill_fits_its_text_in_steps_between_the_spec_widths() {
         assert_eq!(fit(0.0, MAX_W), MIN_W, "short text: the narrowest pill");
-        assert_eq!(fit(200.0, MAX_W), 288.0, "text + 88, already a whole step");
-        assert_eq!(fit(153.0, MAX_W), 248.0, "241 rounds up to the next 8");
+        assert_eq!(fit(200.0, MAX_W), 352.0, "text + 148, rounded up to next whole step");
+        assert_eq!(fit(153.0, MAX_W), 304.0, "301 rounds up to the next 8");
         assert_eq!(fit(1_000.0, MAX_W), MAX_W, "a long line: the widest pill, ellipsized");
         assert_eq!(fit(1_000.0, SONG_MAX_W), SONG_MAX_W, "a long title stops at the peek's width");
-        assert_eq!(fit(200.0, SONG_MAX_W), 288.0, "a title that fits is the same either way");
+        assert_eq!(fit(200.0, SONG_MAX_W), 352.0, "a title that fits is the same either way");
         for max in [SONG_MAX_W, MAX_W] {
             let mut w = 0.0;
             while w < 600.0 {
                 let f = fit(w, max);
                 assert!(f >= w + SIDES || f == max, "{w} wide text fits in {f}");
-                // The caps hold every longer text, so they needn't be whole steps.
-                assert!(f % W_STEP == 0.0 || f == max, "{f} is a whole step");
+                // The caps hold every longer or shorter text, so they needn't be whole steps.
+                assert!(f % W_STEP == 0.0 || f == max || f == MIN_W, "{f} is a whole step or cap");
                 w += 0.7;
             }
         }

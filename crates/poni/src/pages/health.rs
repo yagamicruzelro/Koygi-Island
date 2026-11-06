@@ -129,9 +129,9 @@ fn draw_today(ui: &mut Ui, st: &AppState, h: &HealthSnapshot, steps: u32, goal: 
         // Not updated for two hours (`STALE_AFTER_S`): opening Oyenza on the phone sends the newest.
         ui.c.text(&updated_text(st, h.updated_at), Rect::new(r.x, y + 92.0, r.w, 15.0), &faint);
         let hint = TextStyle::caption().color(palette::TEXT_DIM);
-        ui.c.text("Open Oyenza on your phone to update", Rect::new(r.x, y + 107.0, (right - r.x).max(r.w), 15.0), &hint);
+        ui.c.text("Open Koygi on your phone to update", Rect::new(r.x, y + 107.0, (right - r.x).max(r.w), 15.0), &hint);
     } else {
-        ui.c.text(&format!("From {} via Oyenza", h.source.name()), Rect::new(r.x, y + 92.0, r.w, 15.0), &faint);
+        ui.c.text(&format!("From {} via Koygi", h.source.name()), Rect::new(r.x, y + 92.0, r.w, 15.0), &faint);
         ui.c.text(&updated_text(st, h.updated_at), Rect::new(r.x, y + 107.0, r.w, 15.0), &faint);
     }
 }
@@ -164,9 +164,9 @@ fn draw_not_connected(ui: &mut Ui, st: &mut AppState, r: Rect, center_y: f32) {
     let signed_in = matches!(st.oyenza.link, OyenzaLink::Connected { .. });
     let title = "Your steps, from your phone";
     let body = if signed_in {
-        "Open Oyenza on your iPhone or Android and, under your steps in Health (Sehat), turn on Show on Oyenza Studio. Your daily steps then show here."
+        "Open Koygi on your iPhone or Android and, under your steps in Health (Sehat), turn on Show on Koygi Island. Your daily steps then show here."
     } else {
-        "Oyenza on your iPhone or Android reads them from Apple Health or Health Connect. Sign in to Oyenza to see them here."
+        "Koygi on your iPhone or Android reads them from Apple Health or Health Connect. Sign in to Koygi to see them here."
     };
     let title_st = TextStyle::headline().wrap().top();
     let body_st = TextStyle::footnote().color(palette::TEXT_DIM).wrap().top();
@@ -182,7 +182,7 @@ fn draw_not_connected(ui: &mut Ui, st: &mut AppState, r: Rect, center_y: f32) {
     let tag_y = body_y + body_h + tag_gap;
     match st.oyenza.link {
         OyenzaLink::Off => {
-            let label = "Sign in with Oyenza";
+            let label = "Sign in with Koygi";
             let w = ui.pill_width(label, false, true).min(r.w);
             if ui.pill(wid("health.sign-in"), Rect::new(r.x, tag_y, w, PILL_SMALL), label, None, PillStyle::Primary(palette::ORANGE)).clicked {
                 st.cmd(Command::Oyenza(OyenzaCmd::SignIn));
@@ -197,7 +197,7 @@ fn draw_not_connected(ui: &mut Ui, st: &mut AppState, r: Rect, center_y: f32) {
         }
         // Not a button: the switch is on the phone.
         OyenzaLink::Connected { .. } => {
-            let label = "Off in Oyenza";
+            let label = "Off in Koygi";
             let tag_st = TextStyle::caption().weight(Weight::Semibold).color(palette::TEXT_DIM);
             let (tw, _) = ui.c.measure(label, &tag_st, r.w);
             let tag = Rect::new(r.x, tag_y, (tw.ceil() + 20.0).min(r.w), tag_h);

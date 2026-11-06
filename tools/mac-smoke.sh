@@ -107,9 +107,13 @@ PY
 # reading them asks nobody, in the first keychain of the search list (the
 # signing check puts its own there alone), where the reader's search finds
 # them. The app checks them only with PONI_SMOKE_KEYCHAIN.
-kc_service="Oyenza Studio smoke"
+kc_service="Koygi Island smoke"
 kc_file=$(security list-keychains -d user | head -1 | sed -e 's/^[[:space:]]*"//' -e 's/"[[:space:]]*$//')
-security delete-generic-password -s "$kc_service" -a absent > /dev/null 2>&1
+for s in "$kc_service" "Oyenza Studio ""smoke"; do
+  for a in absent plain accent; do
+    security delete-generic-password -s "$s" -a "$a" > /dev/null 2>&1 || true
+  done
+done
 if security add-generic-password -U -s "$kc_service" -a plain -w '{"claudeAiOauth":{"accessToken":"test-token"}}' "$kc_file" \
   && security add-generic-password -U -s "$kc_service" -a accent -X 636166c3a90a6e657874 "$kc_file" \
   && security find-generic-password -s "$kc_service" -a accent > /dev/null 2>&1; then
@@ -204,7 +208,11 @@ if [ -n "$recorder_failed" ]; then
   echo "the island didn't take a message from the recorder's side of its port"
   code=1
 fi
-for a in plain accent; do security delete-generic-password -s "$kc_service" -a "$a" > /dev/null 2>&1; done
+for s in "$kc_service" "Oyenza Studio ""smoke"; do
+  for a in plain accent absent; do
+    security delete-generic-password -s "$s" -a "$a" > /dev/null 2>&1 || true
+  done
+done
 echo "smoke exit code: $code ($shots screenshots)"
 echo "---- report.json"; cat smoke/report.json || echo "(missing)"
 echo "---- poni.log"; tail -80 smoke/home/poni.log || true

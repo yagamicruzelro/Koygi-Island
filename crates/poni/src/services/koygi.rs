@@ -41,7 +41,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-const USER_AGENT: &str = concat!("OyenzaStudio/", env!("CARGO_PKG_VERSION"), " (+https://github.com/lucacadalora/oyenza-studio)");
+const USER_AGENT: &str = concat!("koygi/", env!("CARGO_PKG_VERSION"), " (+https://github.com/koygi/koygi)");
 const TIMEOUT: Duration = Duration::from_secs(8);
 const NOTE_TIMEOUT: Duration = Duration::from_secs(30);
 /// Opening the tab again within this time asks for nothing new.
@@ -70,9 +70,9 @@ impl OyenzaService {
         let shared = Arc::new(Shared { q: Mutex::new(Queue { activity, ..Default::default() }), cv: Condvar::new() });
         let worker = shared.clone();
         std::thread::Builder::new()
-            .name("poni-oyenza".into())
+            .name("poni-koygi".into())
             .spawn(move || worker_main(worker, sink))
-            .map_err(|e| std::io::Error::other(format!("could not start the Oyenza thread: {e}")))?;
+            .map_err(|e| std::io::Error::other(format!("could not start the Koygi thread: {e}")))?;
         Ok(Self { shared })
     }
 
@@ -274,7 +274,7 @@ impl Worker {
     fn restore(&mut self) {
         self.link = crate::services::secret::load(&crate::paths::oyenza_link_path()).and_then(|s| oyenza::parse_link(&s));
         if let Some(l) = &self.link {
-            crate::pinfo!("oyenza: signed in (this PC is {})", l.device_name);
+            crate::pinfo!("koygi: signed in (this PC is {})", l.device_name);
             self.send(OyenzaEvent::Restored { account: l.account.clone() });
         }
         self.revoke = crate::services::secret::load(&crate::paths::oyenza_revoke_path()).filter(|k| k.starts_with("oyzd_"));
@@ -334,7 +334,7 @@ impl Worker {
             OyenzaCmd::SignIn => self.sign_in(),
             OyenzaCmd::Cancel => {
                 if self.pending.take().is_some() {
-                    crate::pinfo!("oyenza: sign-in cancelled");
+                    crate::pinfo!("koygi: sign-in cancelled");
                     self.send(OyenzaEvent::ConnectCancelled);
                 }
             }
@@ -422,7 +422,7 @@ impl Worker {
                     let every = Duration::from_secs(s.interval.clamp(2, 30));
                     self.pending =
                         Some(Pending { device_code: s.device_code, until: now + Duration::from_secs(s.expires_in.clamp(30, 1800)), next_ask: now + every, every });
-                    crate::pinfo!("oyenza: showing a sign-in code");
+                    crate::pinfo!("koygi: showing a sign-in code");
                     self.send(OyenzaEvent::Connecting { code: s.user_code, url: s.verify_url_complete, expires_in_s: s.expires_in });
                 }
                 None => self.sign_in_failed("other", "unreadable answer"),
@@ -433,7 +433,7 @@ impl Worker {
     }
 
     fn sign_in_failed(&mut self, code: &str, detail: &str) {
-        crate::pwarn!("oyenza: sign-in didn't start ({detail})");
+        crate::pwarn!("koygi: sign-in didn't start ({detail})");
         self.send(OyenzaEvent::ConnectFailed(code.into()));
     }
 
@@ -451,9 +451,9 @@ impl Worker {
                 self.pending = None;
                 if let Err(e) = crate::services::secret::save(&crate::paths::oyenza_link_path(), &oyenza::link_json(&link)) {
                     // Still signed in for this run; it just won't survive a restart.
-                    crate::pwarn!("oyenza: cannot save the sign-in ({e})");
+                    crate::pwarn!("koygi: cannot save the sign-in ({e})");
                 }
-                crate::pinfo!("oyenza: signed in (this PC is {})", link.device_name);
+                crate::pinfo!("koygi: signed in (this PC is {})", link.device_name);
                 self.send(OyenzaEvent::Connected { account: link.account.clone() });
                 self.link = Some(link);
                 self.cursor = None;
@@ -474,7 +474,7 @@ impl Worker {
             }
             Some(Claim::Denied) => {
                 self.pending = None;
-                crate::pinfo!("oyenza: the sign-in code was refused in oyenza.app");
+                crate::pinfo!("koygi: the sign-in code was refused in koygi.app");
                 self.send(OyenzaEvent::ConnectFailed("denied".into()));
             }
             // A network hiccup or a server error: keep asking until the code runs out.
@@ -500,13 +500,13 @@ impl Worker {
         let told = matches!(self.call(Method::Post, &oyenza::disconnect_url(), Some(&link.key), Some("{}"), TIMEOUT), Ok(r) if r.status == 200 || r.status == 401);
         if !told {
             // Keep the key only to tell the server later; it's no longer used for anything else.
-            crate::pwarn!("oyenza: couldn't reach Oyenza to disconnect; will retry");
+            crate::pwarn!("koygi: couldn't reach Koygi to disconnect; will retry");
             let _ = crate::services::secret::save(&crate::paths::oyenza_revoke_path(), &link.key);
             self.revoke = Some(link.key.clone());
             self.next_revoke = Instant::now() + REVOKE_EVERY;
         }
         self.forget();
-        crate::pinfo!("oyenza: disconnected from this PC");
+        crate::pinfo!("koygi: disconnected from this PC");
         self.send(OyenzaEvent::Disconnected { by_server: false });
     }
 
@@ -516,7 +516,7 @@ impl Worker {
         if done {
             let _ = crate::services::secret::delete(&crate::paths::oyenza_revoke_path());
             self.revoke = None;
-            crate::pinfo!("oyenza: the earlier disconnect reached Oyenza");
+            crate::pinfo!("koygi: the earlier disconnect reached Koygi");
         } else {
             self.next_revoke = Instant::now() + REVOKE_EVERY;
         }
@@ -534,7 +534,7 @@ impl Worker {
         self.day_asked = None;
         self.fails = 0;
         if let Err(e) = crate::services::secret::delete(&crate::paths::oyenza_link_path()) {
-            crate::pwarn!("oyenza: cannot remove the saved sign-in ({e})");
+            crate::pwarn!("koygi: cannot remove the saved sign-in ({e})");
         }
     }
 
@@ -544,7 +544,7 @@ impl Worker {
         if self.link.is_none() {
             return;
         }
-        crate::pinfo!("oyenza: the key was disconnected in Oyenza");
+        crate::pinfo!("koygi: the key was disconnected in Koygi");
         self.forget();
         self.send(OyenzaEvent::Disconnected { by_server: true });
     }
@@ -554,7 +554,7 @@ impl Worker {
     fn failed(&mut self, what: &str, detail: String, retry_after_s: Option<u64>) -> Instant {
         self.fails = self.fails.saturating_add(1);
         let wait = oyenza::backoff_s(self.fails, retry_after_s);
-        crate::pwarn!("oyenza: {what} failed ({detail}); next try in {wait} s");
+        crate::pwarn!("koygi: {what} failed ({detail}); next try in {wait} s");
         Instant::now() + Duration::from_secs(wait)
     }
 
@@ -638,7 +638,7 @@ impl Worker {
         match self.call(Method::Get, &oyenza::health_url(), Some(&key), None, TIMEOUT) {
             Ok(r) if r.status == 200 => match oyenza::parse_health(&r.body) {
                 Some(Some(h)) => self.got_health(Some(h), "steps from the phone came in"),
-                Some(None) => self.got_health(None, "no steps to show (off in Oyenza, or none sent yet)"),
+                Some(None) => self.got_health(None, "no steps to show (off in Koygi, or none sent yet)"),
                 None => self.next_health = self.failed("steps check", "unreadable answer".into(), None),
             },
             // A server from before steps came to the PC: none to show, and nothing wrong.
@@ -655,7 +655,7 @@ impl Worker {
         self.next_health = Instant::now() + Duration::from_secs(oyenza::HEALTH_EVERY_S);
         if self.health_said != Some(said) {
             self.health_said = Some(said);
-            crate::pinfo!("oyenza: {said}");
+            crate::pinfo!("koygi: {said}");
         }
         self.send(OyenzaEvent::Health(health));
     }
@@ -668,13 +668,13 @@ impl Worker {
         match self.call(Method::Get, &oyenza::pro_url(), Some(&key), None, TIMEOUT) {
             Ok(r) if r.status == 200 => match oyenza::parse_pro(&r.body) {
                 Some(pro) => self.send(OyenzaEvent::Pro(pro)),
-                None => crate::pwarn!("oyenza: Pro check: unreadable answer"),
+                None => crate::pwarn!("koygi: Pro check: unreadable answer"),
             },
             // A server from before Studio Pro: nobody has it there.
             Ok(r) if r.status == 404 => self.send(OyenzaEvent::Pro(false)),
             Ok(r) if r.status == 401 => self.signed_out_by_server(),
-            Ok(r) => crate::pwarn!("oyenza: Pro check: HTTP {}", r.status),
-            Err(e) => crate::pwarn!("oyenza: Pro check: {e}"),
+            Ok(r) => crate::pwarn!("koygi: Pro check: HTTP {}", r.status),
+            Err(e) => crate::pwarn!("koygi: Pro check: {e}"),
         }
     }
 
@@ -723,7 +723,7 @@ impl Worker {
         match self.call(Method::Post, &oyenza::note_url(), Some(&key), Some(&body), NOTE_TIMEOUT) {
             Ok(r) if r.status == 200 => match oyenza::parse_saved(&r.body) {
                 Some(saved) => {
-                    crate::pinfo!("oyenza: {} spend(s) saved", saved.len());
+                    crate::pinfo!("koygi: {} spend(s) saved", saved.len());
                     self.send(OyenzaEvent::NoteSaved(saved));
                     // The page's list shows it at once.
                     self.next_activity = Instant::now();
@@ -736,11 +736,11 @@ impl Worker {
             }
             Ok(r) => {
                 let code = oyenza::error_code(&r.body).unwrap_or_else(|| "other".into());
-                crate::pwarn!("oyenza: note not saved ({code})");
+                crate::pwarn!("koygi: note not saved ({code})");
                 self.send(OyenzaEvent::NoteFailed { text, code });
             }
             Err(e) => {
-                crate::pwarn!("oyenza: note not sent ({e})");
+                crate::pwarn!("koygi: note not sent ({e})");
                 self.send(OyenzaEvent::NoteFailed { text, code: "offline".into() });
             }
         }

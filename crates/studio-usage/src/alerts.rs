@@ -279,6 +279,7 @@ mod tests {
     use super::*;
     use crate::{parse_time, Source, WindowKind};
     use ProviderId::*;
+    use crate::Oyenza;
 
     /// Tue 27 Oct 2026 05:00 UTC: noon in Jakarta.
     const NOW: i64 = 1_793_077_200;
@@ -486,7 +487,7 @@ mod tests {
         let mut m = Memory::default();
         let said = feed(&mut m, &[balance(Oyenza, 4.2), balance(Oyenza, 1.5), balance(Oyenza, 0.8), balance(Oyenza, 0.6)], &cfg());
         assert_eq!(said.iter().map(Vec::len).collect::<Vec<_>>(), [0, 0, 1, 0]);
-        assert_eq!(words(&said[2]), [(AlertKind::Low, "Oyenza Inference: $0.80 left", "Top up to keep going")]);
+        assert_eq!(words(&said[2]), [(AlertKind::Low, "Koygi Inference: $0.80 left", "Top up to keep going")]);
         assert_eq!(said[2][0].nudge, None);
         // A refund or a small top-up, then under again: nothing new.
         let said = feed(&mut m, &[balance(Oyenza, 1.2), balance(Oyenza, 0.9)], &cfg());
@@ -496,7 +497,7 @@ mod tests {
         assert!(m.changes(&balance(Oyenza, 0.7), NOW, &cfg()).is_empty());
         // A real top-up, spent down again: said again.
         let said = feed(&mut m, &[balance(Oyenza, 10.0), balance(Oyenza, 0.5)], &cfg());
-        assert_eq!(words(&said[1]), [(AlertKind::Low, "Oyenza Inference: $0.50 left", "Top up to keep going")]);
+        assert_eq!(words(&said[1]), [(AlertKind::Low, "Koygi Inference: $0.50 left", "Top up to keep going")]);
         // Overdrawn reads as nothing left.
         let mut m = Memory::default();
         let said = feed(&mut m, &[balance(OpenRouter, 3.0), balance(OpenRouter, -0.25)], &cfg());

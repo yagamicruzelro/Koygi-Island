@@ -96,18 +96,20 @@ pub fn ielts_dir() -> PathBuf {
     cache_dir().join("ielts")
 }
 
-/// The Oyenza sign-in (this Mac's key and the masked account), in a file
+/// The Koygi sign-in (this Mac's key and the masked account), in a file
 /// only this Mac account can read (`services::secret`). Signing out removes
 /// it. With the settings, not the cache: macOS may empty caches by itself.
-pub fn oyenza_link_path() -> PathBuf {
-    data_dir().join("oyenza-link.bin")
+pub fn koygi_link_path() -> PathBuf {
+    data_dir().join("koygi-link.bin")
 }
+pub use koygi_link_path as oyenza_link_path;
 
-/// A key signed out while Oyenza couldn't be reached, kept only to tell the
+/// A key signed out while Koygi couldn't be reached, kept only to tell the
 /// server once it can.
-pub fn oyenza_revoke_path() -> PathBuf {
-    data_dir().join("oyenza-revoke.bin")
+pub fn koygi_revoke_path() -> PathBuf {
+    data_dir().join("koygi-revoke.bin")
 }
+pub use koygi_revoke_path as oyenza_revoke_path;
 
 /// A key typed into the AI tab for one service, or the inference.oyenza.com
 /// key (`usage-<name>.bin`), in a file only this Mac account can read

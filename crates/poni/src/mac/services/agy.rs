@@ -92,13 +92,13 @@ impl Room {
     /// a browser.
     fn new() -> io::Result<Room> {
         static RUNS: AtomicU32 = AtomicU32::new(0);
-        let dir = std::env::temp_dir().join(format!("oyenza-studio-agy-{}-{}", std::process::id(), RUNS.fetch_add(1, Ordering::Relaxed)));
+        let dir = std::env::temp_dir().join(format!("koygi-island-agy-{}-{}", std::process::id(), RUNS.fetch_add(1, Ordering::Relaxed)));
         // One a run of an earlier app with the same number left behind goes first.
         let _ = fs::remove_dir_all(&dir);
         DirBuilder::new().mode(0o700).create(&dir)?;
         let room = Room { asked: dir.join(ASKED), dir };
         let note = format!("'{}'", room.asked.to_string_lossy().replace('\'', "'\\''"));
-        let opener = format!("#!/bin/sh\n# Oyenza Studio: agy wanted a browser (to sign in again). None is opened.\n: > {note}\nexit 1\n");
+        let opener = format!("#!/bin/sh\n# Koygi Island: agy wanted a browser (to sign in again). None is opened.\n: > {note}\nexit 1\n");
         for name in OPENERS {
             OpenOptions::new().write(true).create_new(true).mode(0o700).open(room.dir.join(name))?.write_all(opener.as_bytes())?;
         }

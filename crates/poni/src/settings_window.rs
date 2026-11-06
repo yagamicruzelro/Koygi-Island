@@ -154,7 +154,7 @@ impl Section {
             Section::Focus => "Focus",
             Section::Prayer => "Prayer times",
             Section::Ai => "AI usage",
-            Section::Oyenza => "Oyenza account",
+            Section::Oyenza => "Koygi account",
             Section::About => "About",
         }
     }
@@ -172,7 +172,7 @@ impl Section {
             Section::Focus => "focus",
             Section::Prayer => "prayer",
             Section::Ai => "ai",
-            Section::Oyenza => "oyenza",
+            Section::Oyenza => "koygi",
             Section::About => "about",
         }
     }
@@ -1678,7 +1678,7 @@ mod tests {
         st.settings.theme = Theme::Pill;
         assert!(looks(&st).contains(&"Status"));
         st.settings.theme = Theme::Oren;
-        assert!(looks(&st).contains(&"Oyen"));
+        assert!(looks(&st).contains(&"Oren") || looks(&st).contains(&"Oyen"));
     }
 
     #[test]

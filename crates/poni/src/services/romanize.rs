@@ -56,7 +56,7 @@ pub fn pronounce(lyrics: &Lyrics) -> Pronounced {
         Some(Script::Korean) => Pronounced::read(each_line(&texts, romanize::korean_ruby)),
         Some(Script::Chinese) => Pronounced::read(each_line(&texts, |t| split_long(romanize::chinese_ruby(t)))),
         Some(Script::Japanese) => on_sta(|| japanese_song(&texts)).unwrap_or_else(|| {
-            crate::pwarn!("lyrics: couldn't start the Japanese reading thread; reading with Oyenza Studio's own dictionary");
+            crate::pwarn!("lyrics: couldn't start the Japanese reading thread; reading with Koygi Island's own dictionary");
             own_song(&texts)
         }),
     }
@@ -84,7 +84,7 @@ fn japanese_song(texts: &[&str]) -> Pronounced {
                 }
                 Err(e) => {
                     analyzer = false;
-                    crate::pinfo!("lyrics: {e}; reading with Oyenza Studio's own dictionary");
+                    crate::pinfo!("lyrics: {e}; reading with Koygi Island's own dictionary");
                 }
             }
         }

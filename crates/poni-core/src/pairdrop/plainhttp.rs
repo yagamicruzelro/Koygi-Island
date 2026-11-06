@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn takes_only_plain_local_bases() {
         assert!(PlainHttp::new("http://127.0.0.1:8797").is_some());
-        assert!(PlainHttp::new("https://drop.oyenza.com").is_none());
+        assert!(PlainHttp::new("https://drop.koygi.com").is_none());
         assert!(PlainHttp::new("http://127.0.0.1:8797/x").is_none());
     }
 }

@@ -694,7 +694,7 @@ mod tests {
         // The person hasn't agreed to the weeks yet: the day alone, and the page offers the agreement.
         let one = parse(r#"{"day":"2026-10-26","days":1,"through":"2026-10-26","weeks":false}"#).expect("reads");
         assert!(one.weeks_to_allow());
-        assert_eq!(url("+07:00", "2026-10-26"), "https://api.oyenza.app/island/day?tz=%2B07%3A00&day=2026-10-26&days=35");
+        assert_eq!(url("+07:00", "2026-10-26"), "https://api.koygi.app/island/day?tz=%2B07%3A00&day=2026-10-26&days=35");
     }
 
     #[test]

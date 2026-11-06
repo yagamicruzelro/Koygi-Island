@@ -32,7 +32,7 @@ use std::time::{Duration, Instant};
 /// own PeerTube: no sign-in, and not YouTube, which turns CI's runners away.
 const LINK: &str = "https://video.blender.org/w/b29290cc-dc51-4a12-bcb2-2aa5fece7605";
 /// The add-on's own (`services::addons`).
-const USER_AGENT: &str = concat!("OyenzaStudio/", env!("CARGO_PKG_VERSION"), " (+https://github.com/lucacadalora/oyenza-studio)");
+const USER_AGENT: &str = concat!("koygi/", env!("CARGO_PKG_VERSION"), " (+https://github.com/koygi/koygi)");
 /// Budget for one tool, as the add-on gives one file.
 const FETCH_TIMEOUT: Duration = Duration::from_secs(180);
 /// Budget for one download; the film takes seconds.

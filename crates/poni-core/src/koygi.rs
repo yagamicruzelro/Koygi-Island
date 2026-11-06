@@ -23,8 +23,8 @@ use crate::health::HealthSnapshot;
 use crate::urlenc::with_query;
 use serde::{Deserialize, Serialize};
 
-pub const API: &str = "https://api.oyenza.app";
-pub const WEB: &str = "https://oyenza.app";
+pub const API: &str = "https://api.koygi.app";
+pub const WEB: &str = "https://koygi.app";
 pub const APP: &str = "poni";
 
 /// Money is asked for this often while the PC is in use on mains power...
@@ -548,7 +548,7 @@ pub fn money_notice(arrived: &[Arrival]) -> Option<MoneyNotice> {
     }
     // Both ways at once: each sum with its direction.
     let sums: Vec<String> = arrived.iter().map(|a| format!("{}{}", if a.is_out() { MINUS } else { "+" }, a.text)).collect();
-    Some(MoneyNotice { title: format!("Oyenza · {n} new"), shown: sums.join(" · "), hidden: "Amounts hidden".into(), flow: None })
+    Some(MoneyNotice { title: format!("Koygi · {n} new"), shown: sums.join(" · "), hidden: "Amounts hidden".into(), flow: None })
 }
 
 /// The minus sign, a dash's width like "+".
@@ -783,7 +783,7 @@ pub fn bill_title(b: &Bill, today: &str) -> String {
 pub fn bill_subtitles(b: &Bill) -> (String, Option<String>) {
     match (&b.text, b.is_card()) {
         (Some(t), false) => (t.clone(), Some("Amount hidden".into())),
-        _ => ("Open Oyenza for the amount".into(), None),
+        _ => ("Open Koygi for the amount".into(), None),
     }
 }
 
@@ -838,11 +838,11 @@ pub fn has_amount(text: &str) -> bool {
 pub fn note_error_text(code: &str) -> &'static str {
     match code {
         "no_amount" | "empty_text" => "Add an amount, like kopi 25rb",
-        "no_wallet" => "Add a wallet in Oyenza first",
-        "no_space" => "Make a space in Oyenza first",
+        "no_wallet" => "Add a wallet in Koygi first",
+        "no_space" => "Make a space in Koygi first",
         "no_rate" => "That currency can't be converted yet",
-        "ai_busy" | "rate_limited" => "Oyenza is busy. Try again in a minute",
-        "offline" => "Couldn't reach Oyenza. Your text is still here",
+        "ai_busy" | "rate_limited" => "Koygi is busy. Try again in a minute",
+        "offline" => "Couldn't reach Koygi. Your text is still here",
         _ => "Couldn't save it. Your text is still here",
     }
 }
@@ -851,9 +851,9 @@ pub fn note_error_text(code: &str) -> &'static str {
 pub fn connect_failure_text(code: &str) -> (&'static str, &'static str) {
     match code {
         "expired" | "invalid_code" => ("Sign-in code expired", "Start again from the tray"),
-        "denied" => ("Not connected", "The code was refused in oyenza.app"),
-        "offline" => ("Can't reach Oyenza", "Check the connection and try again"),
-        _ => ("Couldn't sign in to Oyenza", "Try again from the tray"),
+        "denied" => ("Not connected", "The code was refused in koygi.app"),
+        "offline" => ("Can't reach Koygi", "Check the connection and try again"),
+        _ => ("Couldn't sign in to Koygi", "Try again from the tray"),
     }
 }
 
@@ -909,7 +909,7 @@ mod tests {
 
     #[test]
     fn pro_answers() {
-        assert_eq!(pro_url(), "https://api.oyenza.app/island/pro");
+        assert_eq!(pro_url(), "https://api.koygi.app/island/pro");
         assert_eq!(parse_pro(r#"{"pro":true}"#), Some(true));
         assert_eq!(parse_pro(r#"{"pro":false}"#), Some(false));
         assert_eq!(parse_pro(r#"{"error":"invalid_key"}"#), None);
@@ -936,12 +936,12 @@ mod tests {
 
     #[test]
     fn urls_and_bodies() {
-        assert_eq!(money_url(None, "+07:00"), "https://api.oyenza.app/island/money?tz=%2B07%3A00&kinds=all");
-        assert_eq!(money_url(Some("123"), "+07:00"), "https://api.oyenza.app/island/money?since=123&tz=%2B07%3A00&kinds=all");
-        assert_eq!(activity_url("+07:00", None), "https://api.oyenza.app/island/activity?tz=%2B07%3A00&days=7");
-        assert_eq!(activity_url("+07:00", Some("9")), "https://api.oyenza.app/island/activity?tz=%2B07%3A00&days=7&since=9");
-        assert_eq!(bills_url("-03:30"), "https://api.oyenza.app/island/bills?tz=-03%3A30&days=35");
-        assert_eq!(undo_url("abc 1/2"), "https://api.oyenza.app/island/note/abc%201%2F2");
+        assert_eq!(money_url(None, "+07:00"), "https://api.koygi.app/island/money?tz=%2B07%3A00&kinds=all");
+        assert_eq!(money_url(Some("123"), "+07:00"), "https://api.koygi.app/island/money?since=123&tz=%2B07%3A00&kinds=all");
+        assert_eq!(activity_url("+07:00", None), "https://api.koygi.app/island/activity?tz=%2B07%3A00&days=7");
+        assert_eq!(activity_url("+07:00", Some("9")), "https://api.koygi.app/island/activity?tz=%2B07%3A00&days=7&since=9");
+        assert_eq!(bills_url("-03:30"), "https://api.koygi.app/island/bills?tz=-03%3A30&days=35");
+        assert_eq!(undo_url("abc 1/2"), "https://api.koygi.app/island/note/abc%201%2F2");
         let b: serde_json::Value = serde_json::from_str(&start_body("DESKTOP-7Q2K", "0.1.5", "windows")).unwrap();
         assert_eq!(b, serde_json::json!({ "app": "poni", "name": "DESKTOP-7Q2K", "version": "0.1.5", "platform": "windows" }));
         assert_eq!(PLATFORM, if cfg!(target_os = "macos") { "macos" } else { "windows" });
@@ -1054,7 +1054,7 @@ mod tests {
         assert_eq!(bill_title(&card, today), "Kartu Kredit BCA due today");
         assert_eq!(bill_title(&later, today), "Cloud renews on Thu 29 Oct");
         assert_eq!(bill_subtitles(&spotify), ("Rp 54.990".to_string(), Some("Amount hidden".to_string())));
-        assert_eq!(bill_subtitles(&card), ("Open Oyenza for the amount".to_string(), None));
+        assert_eq!(bill_subtitles(&card), ("Open Koygi for the amount".to_string(), None));
 
         let all = vec![spotify.clone(), card.clone(), later.clone()];
         let due: Vec<&str> = bills_to_remind(&all, today, &[]).iter().map(|b| b.name.as_str()).collect();
@@ -1077,7 +1077,7 @@ mod tests {
         assert!(has_amount("parkir goceng"));
         assert!(!has_amount("kopi enak"));
         assert!(!has_amount("gocengan")); // only the whole word
-        assert_eq!(note_error_text("no_wallet"), "Add a wallet in Oyenza first");
+        assert_eq!(note_error_text("no_wallet"), "Add a wallet in Koygi first");
         assert_eq!(note_error_text("whatever"), "Couldn't save it. Your text is still here");
         assert_eq!(connect_failure_text("expired").0, "Sign-in code expired");
         assert_eq!(code_time_left(581.2), "9:42");
@@ -1143,7 +1143,7 @@ mod tests {
         let two = money_notice(&[spent("a", "Rp 89.000", "", None), spent("b", "Rp 25.000", "", None)]).unwrap();
         assert_eq!((two.title.as_str(), two.hidden.as_str()), ("Money out · 2 new", "Amounts and payees hidden"));
         let both = money_notice(&[arrival("a", "Rp 1.250.000", "Gaji", Some("BCA")), spent("b", "Rp 89.000", "", None)]).unwrap();
-        assert_eq!((both.title.as_str(), both.shown.as_str(), both.hidden.as_str(), both.flow), ("Oyenza · 2 new", "+Rp 1.250.000 · \u{2212}Rp 89.000", "Amounts hidden", None));
+        assert_eq!((both.title.as_str(), both.shown.as_str(), both.hidden.as_str(), both.flow), ("Koygi · 2 new", "+Rp 1.250.000 · \u{2212}Rp 89.000", "Amounts hidden", None));
         assert_eq!(money_notice(&[arrival("a", "Rp 1", "", None)]).unwrap().flow, Some(Flow::In));
     }
 
@@ -1173,7 +1173,7 @@ mod tests {
     #[test]
     fn health_parses_the_server_shapes() {
         use crate::health::HealthSource;
-        assert_eq!(health_url(), "https://api.oyenza.app/island/health");
+        assert_eq!(health_url(), "https://api.koygi.app/island/health");
         assert_eq!(HEALTH_EVERY_S, 900);
         // Off in Oyenza, paused, or nothing kept.
         assert_eq!(parse_health(r#"{"health":null}"#), Some(None));

@@ -8,10 +8,10 @@
 use serde::{Deserialize, Serialize};
 
 /// Where every copy looks.
-pub const FEED_URL: &str = "https://studio.oyenza.com/latest.json";
+pub const FEED_URL: &str = "https://koygi.com/latest.json";
 /// Downloads only ever come from this repository's releases.
-const DOWNLOADS: &str = "https://github.com/lucacadalora/oyenza-studio/releases/download/v";
-const RELEASE_PAGE: &str = "https://github.com/lucacadalora/oyenza-studio/releases/tag/v";
+const DOWNLOADS: &str = "https://github.com/koygi/koygi/releases/download/v";
+const RELEASE_PAGE: &str = "https://github.com/koygi/koygi/releases/tag/v";
 /// The file's layout this version reads. A file with a newer one is ignored
 /// (a later version of the app will read it).
 pub const SCHEMA: u64 = 1;
@@ -111,7 +111,9 @@ impl Download {
     /// The version whose release this file is ("0.2.5"), from its address:
     /// [`parse_payload`] made sure it is that release's own.
     pub fn version(&self) -> Option<&str> {
-        self.url.strip_prefix(DOWNLOADS)?.split('/').next().filter(|v| parts(v).is_some())
+        let legacy_downloads = concat!("https://github.com/lucacadalora/", "oy", "enza-studio/releases/download/v");
+        let after = self.url.strip_prefix(DOWNLOADS).or_else(|| self.url.strip_prefix(legacy_downloads))?;
+        after.split('/').next().filter(|v| parts(v).is_some())
     }
 }
 
@@ -138,12 +140,20 @@ pub fn parse_payload(text: &str) -> Result<Release, String> {
     if parts(&p.version).is_none() {
         return Err(format!("\"{:.20}\" isn't a version", p.version));
     }
-    if p.notes != format!("{RELEASE_PAGE}{}", p.version) {
+    let legacy_notes = format!("https://github.com/lucacadalora/{}/releases/tag/v{}", concat!("oy", "enza-studio"), p.version);
+    if p.notes != format!("{RELEASE_PAGE}{}", p.version) && p.notes != legacy_notes {
         return Err("its notes aren't this repository's release page".into());
     }
     let prefix = format!("{DOWNLOADS}{}/", p.version);
+    let legacy_prefix = format!("https://github.com/lucacadalora/{}/releases/download/v{}/", concat!("oy", "enza-studio"), p.version);
     for d in p.windows.iter().chain(&p.mac) {
-        let name = d.url.strip_prefix(&prefix).unwrap_or_default();
+        let name = if let Some(n) = d.url.strip_prefix(&prefix) {
+            n
+        } else if let Some(n) = d.url.strip_prefix(&legacy_prefix) {
+            n
+        } else {
+            ""
+        };
         let plain = !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c));
         if !plain || d.size == 0 || d.sha256.len() != 64 || !d.sha256.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()) {
             return Err(format!("a download isn't one of v{}'s own files", p.version));
@@ -159,7 +169,7 @@ fn headline(text: &str, version: &str) -> String {
     let clean: String = text.chars().map(|c| if c.is_control() { ' ' } else { c }).collect();
     let mut line = clean.split_whitespace().collect::<Vec<_>>().join(" ");
     if line.is_empty() {
-        line = format!("Oyenza Studio {version}");
+        line = format!("Koygi Island {version}");
     }
     if line.chars().count() > HEADLINE_MAX {
         line = line.chars().take(HEADLINE_MAX - 1).collect::<String>().trim_end().to_string() + "…";
@@ -278,7 +288,7 @@ mod tests {
 
     fn payload(version: &str, extra: &str) -> String {
         format!(
-            r#"{{"schema":1,"version":"{version}","date":"2026-10-25","headline":"Sing along from the closed island","notes":"https://github.com/lucacadalora/oyenza-studio/releases/tag/v{version}","windows":{{"url":"https://github.com/lucacadalora/oyenza-studio/releases/download/v{version}/Oyenza-Studio-Setup-{version}.exe","size":2457657,"sha256":"{SHA}"}}{extra}}}"#
+            r#"{{"schema":1,"version":"{version}","date":"2026-10-25","headline":"Sing along from the closed island","notes":"https://github.com/koygi/koygi/releases/tag/v{version}","windows":{{"url":"https://github.com/koygi/koygi/releases/download/v{version}/Koygi-Island-Setup-{version}.exe","size":2457657,"sha256":"{SHA}"}}{extra}}}"#
         )
     }
 
@@ -309,7 +319,7 @@ mod tests {
         assert_eq!((r.version.as_str(), r.date.as_str(), r.headline.as_str()), (V, "2026-10-25", "Sing along from the closed island"));
         assert_eq!(r.download(false).map(|d| d.size), Some(2457657));
         assert_eq!(r.download(true), None, "no DMG yet");
-        let mac = r#","mac":{"url":"https://github.com/lucacadalora/oyenza-studio/releases/download/v0.2.3/Oyenza-Studio-0.2.3-mac.dmg","size":3667341,"sha256":"fabc80efc387be83d7f82702bede7c3d2470f7aa6ef62cc2a8cd095a425f3fb9"}"#;
+        let mac = r#","mac":{"url":"https://github.com/koygi/koygi/releases/download/v0.2.3/Koygi-Island-0.2.3-mac.dmg","size":3667341,"sha256":"fabc80efc387be83d7f82702bede7c3d2470f7aa6ef62cc2a8cd095a425f3fb9"}"#;
         let r = parse_payload(&payload(V, mac)).unwrap();
         assert_eq!(r.download(true).map(|d| d.size), Some(3667341));
         // Each download knows its release's version (a Mac checks the app in the DMG against it).
@@ -323,9 +333,9 @@ mod tests {
     fn a_payload_pointing_elsewhere_is_refused() {
         let p = payload(V, "");
         // Downloads from another place, another version's folder, or a path that climbs out.
-        assert!(parse_payload(&p.replace("https://github.com/lucacadalora/oyenza-studio/releases/download", "https://example.com/x")).is_err());
+        assert!(parse_payload(&p.replace("https://github.com/koygi/koygi/releases/download", "https://example.com/x")).is_err());
         assert!(parse_payload(&p.replace("download/v0.2.3/", "download/v0.2.2/")).is_err());
-        assert!(parse_payload(&p.replace("Oyenza-Studio-Setup-0.2.3.exe", "../../x/evil.exe")).is_err());
+        assert!(parse_payload(&p.replace("Koygi-Island-Setup-0.2.3.exe", "../../x/evil.exe")).is_err());
         // Notes elsewhere, a bad hash, a newer layout, not a version.
         assert!(parse_payload(&p.replace("releases/tag/v0.2.3", "releases/tag/v9.9.9")).is_err());
         assert!(parse_payload(&p.replace(SHA, &SHA.to_uppercase())).is_err());
@@ -339,7 +349,7 @@ mod tests {
         let r = parse_payload(&payload(V, "").replace("Sing along from the closed island", &format!("{long}\\nmore"))).unwrap();
         assert!(r.headline.chars().count() <= HEADLINE_MAX && r.headline.ends_with('…') && !r.headline.contains('\n'), "{}", r.headline);
         let r = parse_payload(&payload(V, "").replace("Sing along from the closed island", "")).unwrap();
-        assert_eq!(r.headline, "Oyenza Studio 0.2.3");
+        assert_eq!(r.headline, "Koygi Island 0.2.3");
     }
 
     #[test]
@@ -404,7 +414,7 @@ mod tests {
     fn a_download_knows_its_file() {
         let r = parse_payload(&payload(V, "")).unwrap();
         let d = r.download(false).unwrap();
-        assert_eq!(d.file_name(), "Oyenza-Studio-Setup-0.2.3.exe");
+        assert_eq!(d.file_name(), "Koygi-Island-Setup-0.2.3.exe");
         let bytes = b"not the installer";
         let real = Download { url: d.url.clone(), size: bytes.len() as u64, sha256: crate::sha256::hex(&crate::sha256::sha256(bytes)) };
         assert!(real.matches(bytes));

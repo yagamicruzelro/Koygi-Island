@@ -332,7 +332,7 @@ pub fn draw(ui: &mut Ui, st: &mut AppState, area: Rect) {
 
 fn draw_session(ui: &mut Ui, st: &mut AppState, area: Rect, a: &mut Anim, fr: &Frame) {
     let now = st.now;
-    let accent = st.media_accent();
+    let accent = ui.c.look().guard_accent(st.media_accent());
     let lyrics_enabled = st.settings.lyrics;
     let Some(m) = st.media.as_ref() else { return };
 

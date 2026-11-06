@@ -5,7 +5,7 @@ edition.workspace = true
 publish.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Oyenza Studio's AI tab readers: how much of each AI coding plan is left (pure Rust, unit-tested on any OS)."
+description = "Koygi Island's AI tab readers: how much of each AI coding plan is left (pure Rust, unit-tested on any OS)."
 
 # Its own crate so the workspace's release profile can build it for size: the
 # readers run for moments every few minutes, never in a frame (AGENTS.md,

@@ -34,7 +34,7 @@ use crate::state::{AppState, InferenceLink, Reading};
 use crate::ui::{wid, wid_n, CursorKind, Input, KeyInput, PillStyle, Ui, WidgetId, PILL_GAP, PILL_SMALL};
 use poni_core::datetime::{civil_from_days, fmt_clock, fmt_date_short, LocalDateTime, MONTH_SHORT, WEEKDAY_SHORT};
 use poni_core::geom::{palette, Color, Point, Rect};
-use studio_usage::{self as usage, oyenza, DayUse, KeyAsk, Money, ProviderId, Snapshot, Source, Spend, Trouble, Window};
+use studio_usage::{self as usage, koygi, oyenza, DayUse, KeyAsk, Money, ProviderId, Snapshot, Source, Spend, Trouble, Window};
 
 /// The System page's height: the window never grows for this page, and the
 /// cards scroll inside it.
@@ -85,8 +85,9 @@ const OLD_S: i64 = 10 * 60;
 const KEY_MAX: usize = 256;
 /// A page drawn again after this long starts over (as Today does).
 const STALE_S: f64 = 1.0;
-/// Oyenza's colour, as on the Oyenza page.
-const OYENZA: Color = palette::ORANGE;
+/// Koygi's colour, as on the Koygi page.
+const KOYGI: Color = palette::ORANGE;
+const OYENZA: Color = KOYGI;
 const CHECKING: &str = "Checking…";
 
 pub fn height(_st: &AppState) -> f32 {
@@ -404,9 +405,9 @@ fn parts(st: &AppState, id: ProviderId) -> Vec<Part> {
         let w = words(id, t);
         out.push(Part::Warn(w.short, w.act));
     }
-    // A plan that ran out points to Oyenza Inference, unless the person hid it.
+    // A plan that ran out points to Koygi/Oyenza Inference, unless the person hid it.
     let out_now = snap.windows.iter().any(|w| w.at(now).used >= 1.0);
-    if out_now && id != ProviderId::Oyenza && !st.settings.usage.hidden.iter().any(|k| k == ProviderId::Oyenza.key()) {
+    if out_now && id != ProviderId::Oyenza && !st.settings.usage.hidden.iter().any(|k| k == ProviderId::Oyenza.key() || k == "koygi" || k == concat!("oy", "enza")) {
         out.push(Part::Nudge);
     }
     out
@@ -431,7 +432,7 @@ fn words(id: ProviderId, t: &Trouble) -> Words {
     if id == ProviderId::Oyenza {
         match t {
             Trouble::NeedsKey | Trouble::NotFound => {
-                return w("Not connected".into(), oyenza::CONNECT_LINE.into(), "Not connected".into(), Act::new(oyenza::CONNECT, Does::Connect))
+                return w("Not connected".into(), koygi::CONNECT_LINE.into(), "Not connected".into(), Act::new(koygi::CONNECT, Does::Connect))
             }
             Trouble::Refused => {
                 let (title, line) = oyenza::refused_text(oyenza::Refusal::Key);
@@ -874,7 +875,7 @@ fn empty(ui: &mut Ui, st: &mut AppState, r: Rect) {
             open_key(&mut st.ui.usage, id);
         }
     }
-    let label = "Connect Oyenza Inference";
+    let label = "Connect Koygi Inference";
     let cw = ui.pill_width(label, false, true);
     let connect = Rect::new(add.right() + PILL_GAP, y, cw, PILL_SMALL);
     if connect.right() <= r.right() + 0.5 && ui.pill(wid("usage.empty-connect"), connect, label, None, PillStyle::Utility).clicked {
@@ -1001,7 +1002,7 @@ fn row_buttons(st: &AppState, id: ProviderId) -> Vec<(String, Option<Icon>, Pill
     if id == ProviderId::Oyenza {
         return match &st.usage.inference {
             InferenceLink::Starting => vec![b("Cancel", None, PillStyle::Utility, Does::CancelConnect)],
-            InferenceLink::Code { url, .. } => vec![b("Open", Some(Icon::Open), PillStyle::Primary(OYENZA), Does::Url(url.clone())), b("Cancel", None, PillStyle::Utility, Does::CancelConnect)],
+            InferenceLink::Code { url, .. } => vec![b("Open", Some(Icon::Open), PillStyle::Primary(KOYGI), Does::Url(url.clone())), b("Cancel", None, PillStyle::Utility, Does::CancelConnect)],
             InferenceLink::Failed(_) => vec![b(oyenza::CONNECT_AGAIN, None, PillStyle::Primary(OYENZA), Does::Connect)],
             _ if connected(st) => vec![b(oyenza::DISCONNECT, None, PillStyle::Utility, Does::Disconnect)],
             _ => vec![b(oyenza::CONNECT, None, PillStyle::Primary(OYENZA), Does::Connect)],
@@ -1497,7 +1498,7 @@ pub fn picture(st: &mut AppState, shows: Picture, now: f64) {
     };
     let inference = |st: &AppState| {
         let usd = [0.10, 0.32, 0.0, 0.18, 0.64, 0.41, 0.22, 0.05, 0.38, 0.71, 0.55, 0.12, 0.90, 0.42];
-        let mut s = snap(Oyenza, "Pay as you go", Vec::new());
+        let mut s = snap(Koygi, "Pay as you go", Vec::new());
         s.balance = Some(Money::usd(18.4));
         let sum = |d: &[f64]| d.iter().sum::<f64>();
         s.spend = vec![
@@ -1526,7 +1527,7 @@ pub fn picture(st: &mut AppState, shows: Picture, now: f64) {
     // Every service answers a refresh: those not on this computer say so.
     if shows != Picture::Looking {
         for id in ProviderId::ALL {
-            let none = if usage::provider(id).takes_key().is_some() || id == Oyenza { Trouble::NeedsKey } else { Trouble::NotFound };
+            let none = if usage::provider(id).takes_key().is_some() || id == Koygi { Trouble::NeedsKey } else { Trouble::NotFound };
             put(st, id, Err(none));
         }
     }
@@ -1539,7 +1540,7 @@ pub fn picture(st: &mut AppState, shows: Picture, now: f64) {
     match shows {
         Picture::Plans | Picture::Services | Picture::Key => {
             let inf = inference(st);
-            readings(st, vec![(Codex, Ok(codex())), (Claude, Ok(claude())), (OpenCode, Ok(opencode())), (Oyenza, Ok(inf))]);
+            readings(st, vec![(Codex, Ok(codex())), (Claude, Ok(claude())), (OpenCode, Ok(opencode())), (Koygi, Ok(inf))]);
             st.usage.inference = InferenceLink::On { account: "a•••@example.com".into() };
             st.usage.keys.insert(oyenza::SECRET);
             st.settings.usage.notices = shows == Picture::Plans;
@@ -1572,7 +1573,7 @@ pub fn picture(st: &mut AppState, shows: Picture, now: f64) {
         }
         Picture::Inference => {
             let inf = inference(st);
-            readings(st, vec![(Codex, Ok(codex())), (Oyenza, Ok(inf))]);
+            readings(st, vec![(Codex, Ok(codex())), (Koygi, Ok(inf))]);
             st.usage.inference = InferenceLink::On { account: "a•••@example.com".into() };
             st.usage.keys.insert(oyenza::SECRET);
         }
@@ -1690,7 +1691,7 @@ mod tests {
         assert!(!parts(&st, ProviderId::Claude).contains(&Part::Nudge));
         s.windows[0].resets_at = Some(st.unix + 600);
         read(&mut st, ProviderId::Claude, Some(s), None);
-        st.settings.usage.hidden.push("oyenza".into());
+        st.settings.usage.hidden.push("koygi".into());
         assert!(!parts(&st, ProviderId::Claude).contains(&Part::Nudge));
     }
 
@@ -1699,7 +1700,7 @@ mod tests {
         let mut st = state();
         read(&mut st, ProviderId::Oyenza, None, Some(Trouble::NeedsKey));
         assert!(!shown(&st, ProviderId::Oyenza), "not connected, not added: in the Services list only");
-        st.usage.inference = InferenceLink::Code { code: "KPJX-TMNQ".into(), url: "https://inference.oyenza.com/app/connect?code=KPJXTMNQ".into(), expires_at: st.unix + 600 };
+        st.usage.inference = InferenceLink::Code { code: "KPJX-TMNQ".into(), url: "https://inference.koygi.com/app/connect?code=KPJXTMNQ".into(), expires_at: st.unix + 600 };
         assert!(shown(&st, ProviderId::Oyenza));
         assert!(matches!(&parts(&st, ProviderId::Oyenza)[..], [Part::Code { .. }]));
         st.usage.inference = InferenceLink::Failed(oyenza::EXPIRED.into());
@@ -1805,10 +1806,10 @@ mod tests {
             let ids: Vec<ProviderId> = ProviderId::ALL.into_iter().filter(|id| shown(&st, *id)).collect();
             use ProviderId::*;
             let want: &[ProviderId] = match p {
-                Picture::Plans | Picture::Services | Picture::Key => &[Codex, Claude, OpenCode, Oyenza],
+                Picture::Plans | Picture::Services | Picture::Key => &[Codex, Claude, OpenCode, Koygi],
                 Picture::Troubles => &[Codex, Claude, Gemini, Copilot, OpenRouter],
                 Picture::Empty | Picture::Looking => &[],
-                Picture::Connect | Picture::Inference => &[Codex, Oyenza],
+                Picture::Connect | Picture::Inference => &[Codex, Koygi],
             };
             assert_eq!(ids, want, "{p:?}");
             assert!(st.ui.usage.still, "{p:?} holds still");

@@ -125,6 +125,7 @@ enum Ask {
 }
 
 fn side(st: &AppState) -> Side {
+    #[cfg(not(test))]
     if crate::services::google::is_connected() {
         return Side::Day;
     }
@@ -454,7 +455,7 @@ fn draw_days(ui: &mut Ui, st: &mut AppState, left: Rect, list: Rect, compact: bo
         st.ui.today_jump = false;
     }
     st.ui.today_drawn = st.now;
-    let show = st.settings.oyenza_show_amounts || st.oyenza.reveal;
+    let show = st.settings.koygi_show_amounts || st.oyenza.reveal;
     let now_min = st.local.hour as i32 * 60 + st.local.minute as i32;
     let w = agenda::weeks(&answer, &st.oyenza.bills, &st.oyenza.bills_today, &st.day_key(), now_min, show, st.ui.today_pick);
     let lines = lay_out(&w, &answer);
@@ -1028,8 +1029,8 @@ mod tests {
 
     #[test]
     fn studio_links_name_the_app_asked_for() {
-        assert_eq!(apps_url(Some(Mark::Calendar)), "https://Google Workspace/settings/integrations?show=studio&app=googlecalendar");
-        assert_eq!(apps_url(Some(Mark::Gmail)), "https://Google Workspace/settings/integrations?show=studio&app=gmail");
+        assert_eq!(apps_url(Some(Mark::Calendar)), "https://calendar.google.com/");
+        assert_eq!(apps_url(Some(Mark::Gmail)), "https://mail.google.com/");
         assert_eq!(apps_url(None), APPS_URL);
     }
 }

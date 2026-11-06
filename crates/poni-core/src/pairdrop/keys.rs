@@ -147,7 +147,7 @@ mod tests {
         assert_eq!(s.room(), "geDM0jEhk4eiOz_li-FtORW2YlPBbebr7NsHjLkHI_4");
         assert_eq!(s.proof(), "6JmvhsXX2_bzKYvHQ_iFgLcPnlG-m636-rWXAI5Vubo");
         assert_eq!(b64u(&s.mac_key()), "PbxVzGOl5YKxg6Fd-uSD6Yqr9716j9MddvFbISuFxL4");
-        assert_eq!(s.link("https://drop.oyenza.com/"), "https://drop.oyenza.com/p#k=AAECAwQFBgcICQoLDA0ODw");
+        assert_eq!(s.link("https://drop.koygi.com/"), "https://drop.koygi.com/p#k=AAECAwQFBgcICQoLDA0ODw");
     }
 
     #[test]

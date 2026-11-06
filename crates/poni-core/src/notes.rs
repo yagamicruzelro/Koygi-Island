@@ -306,8 +306,8 @@ impl Problem {
             Problem::NothingHeard => "Oyen didn't hear anyone",
             Problem::Unfinished => "Your last meeting isn't written up",
             Problem::ProRequired => "Meeting notes are part of Studio Pro",
-            Problem::Offline => "Can't reach Oyenza",
-            Problem::SignedOut => "You're signed out of Oyenza",
+            Problem::Offline => "Can't reach Koygi",
+            Problem::SignedOut => "You're signed out of Koygi",
             Problem::Capture(CaptureIssue::MicDenied) => "The microphone is blocked",
             Problem::Capture(CaptureIssue::NoSound) => "No sound to record",
             Problem::Capture(CaptureIssue::Failed) => "Recording stopped",
@@ -325,11 +325,11 @@ impl Problem {
             Problem::Busy(_) => "Your recording is kept. Try again in a minute.".into(),
             Problem::AiFailed | Problem::Server | Problem::Gone | Problem::TooSlow => "Your recording is kept. Try again.".into(),
             Problem::NothingHeard => "Was the call muted? Check that the bars move next time.".into(),
-            Problem::Unfinished => "Its recording was kept when Oyenza Studio closed. Write it up now, or throw it away.".into(),
-            Problem::ProRequired => "This Oyenza account doesn't have Pro. Your recording is kept.".into(),
+            Problem::Unfinished => "Its recording was kept when Koygi Island closed. Write it up now, or throw it away.".into(),
+            Problem::ProRequired => "This Koygi account doesn't have Pro. Your recording is kept.".into(),
             Problem::Offline => "Your recording is kept. Check the internet, then try again.".into(),
-            Problem::SignedOut => "Sign in to Oyenza again: your recording is kept.".into(),
-            Problem::Capture(CaptureIssue::MicDenied) if cfg!(target_os = "macos") => "Turn on Oyenza Studio in System Settings \u{203a} Privacy & Security \u{203a} Microphone.".into(),
+            Problem::SignedOut => "Sign in to Koygi again: your recording is kept.".into(),
+            Problem::Capture(CaptureIssue::MicDenied) if cfg!(target_os = "macos") => "Turn on Koygi Island in System Settings \u{203a} Privacy & Security \u{203a} Microphone.".into(),
             Problem::Capture(CaptureIssue::MicDenied) => "Turn on microphone access for desktop apps in Windows Settings.".into(),
             Problem::Capture(CaptureIssue::NoSound) => "Plug in a microphone or speakers, then try again.".into(),
             Problem::Capture(CaptureIssue::Failed) => "A sound device went away. What was heard is kept.".into(),
@@ -527,7 +527,7 @@ pub fn markdown(n: &Notes, started: &LocalDateTime, with_transcript: bool) -> St
             md += &format!("**[{}] {}:** {}\n\n", fmt_length(l.t), l.who, l.text);
         }
     }
-    md += "\n---\nNotes by Oyen, in Oyenza Studio\n";
+    md += "\n---\nNotes by Oyen, in Koygi Island\n";
     md
 }
 
@@ -586,7 +586,7 @@ mod tests {
 
     #[test]
     fn addresses_and_answers() {
-        assert_eq!(start_url(BASE), "https://api.oyenza.app/island/notes");
+        assert_eq!(start_url(BASE), "https://api.koygi.app/island/notes");
         assert_eq!(part_url("http://127.0.0.1:9", "a b", 3), "http://127.0.0.1:9/island/notes/a%20b/part/3");
         assert_eq!(finish_url("x", "id1"), "x/island/notes/id1/finish");
         assert_eq!(view_url("x", "id1"), "x/island/notes/id1");

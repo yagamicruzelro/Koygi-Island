@@ -27,20 +27,35 @@ pub enum IdleStyle {
 pub enum Theme {
     /// The plain black island.
     #[default]
+    #[serde(alias = "glass", alias = "liquid_glass")]
     Classic,
-    /// Pill: the island floats a little below the top edge as a black capsule.
-    Pill,
     /// Oren: playful orange cat mascot living in the notch island.
     #[serde(alias = "oyen")]
     Oren,
     /// Corgi: playful corgi puppy mascot living in the notch island.
-    #[serde(alias = "glass")]
     Corgi,
+    /// Pill: the island floats a little below the top edge as a black capsule.
+    Pill,
     /// Oren Pill: floating black capsule with Oren cat animations.
     #[serde(alias = "oyen_pill")]
     OrenPill,
     /// Corgi Pill: floating black capsule with Corgi puppy animations.
     CorgiPill,
+}
+
+impl Theme {
+    pub const ALL: [Theme; 6] = [
+        Theme::Classic,
+        Theme::Oren,
+        Theme::Corgi,
+        Theme::Pill,
+        Theme::OrenPill,
+        Theme::CorgiPill,
+    ];
+
+    pub fn all() -> &'static [Theme] {
+        &Self::ALL
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -109,7 +124,8 @@ pub struct Settings {
     pub pomodoro: PomodoroConfig,
     /// Oyenza (once signed in): show sums and senders on the island straight
     /// away. Off: they wait for a click on Show, so a shared screen shows none.
-    pub oyenza_show_amounts: bool,
+    #[serde(default, alias = "oyenza_show_amounts")]
+    pub koygi_show_amounts: bool,
     /// Personal Google account or calendar link connected directly in-app.
     #[serde(default)]
     pub google_calendar_link: String,
@@ -252,7 +268,7 @@ impl Default for Settings {
             remember_page: true,
             hidden_tabs: Vec::new(),
             pomodoro: PomodoroConfig::default(),
-            oyenza_show_amounts: false,
+            koygi_show_amounts: false,
             google_calendar_link: String::new(),
             system_history: true,
             addons: BTreeMap::new(),
@@ -430,6 +446,10 @@ mod tests {
         let s: Settings = serde_json::from_str(r#"{"theme":"oyen"}"#).unwrap();
         assert_eq!(s.theme, Theme::Oren);
         let s: Settings = serde_json::from_str(r#"{"theme":"glass"}"#).unwrap();
+        assert_eq!(s.theme, Theme::Classic);
+        let s: Settings = serde_json::from_str(r#"{"theme":"liquid_glass"}"#).unwrap();
+        assert_eq!(s.theme, Theme::Classic);
+        let s: Settings = serde_json::from_str(r#"{"theme":"corgi"}"#).unwrap();
         assert_eq!(s.theme, Theme::Corgi);
         let s: Settings = serde_json::from_str(r#"{"theme":"pill"}"#).unwrap();
         assert_eq!(s.theme, Theme::Pill);
@@ -639,5 +659,32 @@ mod tests {
         assert!(j.contains(r#""record":{"target":"area","camera":true,"microphone":false,"system_audio":true}"#), "{j}");
         let back: Settings = serde_json::from_str(&j).unwrap();
         assert_eq!(back.record, s.record);
+    }
+
+    #[test]
+    fn theme_serialization_and_aliases_round_trip() {
+        assert_eq!(serde_json::from_str::<Theme>(r#""classic""#).unwrap(), Theme::Classic);
+        assert_eq!(serde_json::from_str::<Theme>(r#""pill""#).unwrap(), Theme::Pill);
+        assert_eq!(serde_json::from_str::<Theme>(r#""oren""#).unwrap(), Theme::Oren);
+        assert_eq!(serde_json::from_str::<Theme>(r#""oyen""#).unwrap(), Theme::Oren);
+        assert_eq!(serde_json::from_str::<Theme>(r#""glass""#).unwrap(), Theme::Classic);
+        assert_eq!(serde_json::from_str::<Theme>(r#""liquid_glass""#).unwrap(), Theme::Classic);
+        assert_eq!(serde_json::from_str::<Theme>(r#""corgi""#).unwrap(), Theme::Corgi);
+        assert_eq!(serde_json::from_str::<Theme>(r#""oren_pill""#).unwrap(), Theme::OrenPill);
+        assert_eq!(serde_json::from_str::<Theme>(r#""oyen_pill""#).unwrap(), Theme::OrenPill);
+        assert_eq!(serde_json::from_str::<Theme>(r#""corgi_pill""#).unwrap(), Theme::CorgiPill);
+
+        assert_eq!(serde_json::to_string(&Theme::Classic).unwrap(), r#""classic""#);
+        assert_eq!(serde_json::to_string(&Theme::Oren).unwrap(), r#""oren""#);
+        assert_eq!(serde_json::to_string(&Theme::Corgi).unwrap(), r#""corgi""#);
+    }
+
+    #[test]
+    fn legacy_oyenza_show_amounts_deserializes() {
+        let json = concat!("{\"", "oy", "enza_show_amounts\": true}");
+        let s: Settings = serde_json::from_str(json).expect("deserialization succeeds");
+        assert!(s.koygi_show_amounts);
+        let out = serde_json::to_string(&s).unwrap();
+        assert!(out.contains(r#""koygi_show_amounts":true"#));
     }
 }

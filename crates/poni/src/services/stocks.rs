@@ -26,7 +26,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-const USER_AGENT: &str = concat!("OyenzaStudio/", env!("CARGO_PKG_VERSION"), " (+https://github.com/lucacadalora/oyenza-studio)");
+const USER_AGENT: &str = concat!("koygi/", env!("CARGO_PKG_VERSION"), " (+https://github.com/koygi/koygi)");
 const TIMEOUT: Duration = Duration::from_secs(8);
 /// The page opening again within this time asks for nothing new: oyenza.trade
 /// reads the exchange every 15 s at most.
@@ -315,7 +315,7 @@ impl Worker {
                     None
                 }
                 None => {
-                    self.note("oyenza.trade sent something that isn't an answer");
+                    self.note("koygi.trade sent something that isn't an answer");
                     self.failed(Trouble::Server, None)
                 }
             },
@@ -325,13 +325,13 @@ impl Worker {
                 None
             }
             Ok(r) if r.status == 404 => {
-                self.note("oyenza.trade has its live prices off (404)");
+                self.note("koygi.trade has its live prices off (404)");
                 self.fails = 0;
                 self.send(StocksEvent::Failed(Trouble::Paused));
                 Some(OFF_GAP)
             }
             Ok(r) => {
-                self.note("oyenza.trade answered with an error");
+                self.note("koygi.trade answered with an error");
                 crate::pwarn!("stocks: HTTP {}", r.status);
                 self.failed(Trouble::Server, r.retry_after_s)
             }
@@ -340,7 +340,7 @@ impl Worker {
                 self.failed(Trouble::Server, None)
             }
             Err(_) => {
-                self.note("oyenza.trade can't be reached");
+                self.note("koygi.trade can't be reached");
                 self.failed(Trouble::Offline, None)
             }
         };
@@ -464,7 +464,7 @@ mod tests {
     /// nothing, which is how 0.2.11 shipped a thread that never asked. Silence
     /// fails; oyenza.trade answering badly only warns, since the thread asked.
     #[test]
-    #[ignore = "asks the live oyenza.trade"]
+    #[ignore = "asks the live koygi.trade"]
     fn the_live_market_comes_in() {
         let (tx, rx) = mpsc::channel();
         let service = StocksService::start(sink(tx)).expect("the Stocks thread starts");
@@ -488,7 +488,7 @@ mod tests {
                 Err(_) => {
                     let missing = [("prices", board.is_none()), ("names", names.is_none()), ("BBCA's year", year.is_none())];
                     let missing: Vec<&str> = missing.iter().filter(|m| m.1).map(|m| m.0).collect();
-                    panic!("no {} from the Stocks thread in 30 s: it never asked oyenza.trade", missing.join(", "));
+                    panic!("no {} from the Stocks thread in 30 s: it never asked koygi.trade", missing.join(", "));
                 }
             };
             let at = start.elapsed().as_secs_f32();
@@ -507,11 +507,11 @@ mod tests {
                 }
                 StocksEvent::Same => {}
                 StocksEvent::Failed(why) => {
-                    println!("::warning::The Stocks thread asked, but oyenza.trade gave no prices ({why:?}) after {at:.2} s");
+                    println!("::warning::The Stocks thread asked, but koygi.trade gave no prices ({why:?}) after {at:.2} s");
                     return;
                 }
                 StocksEvent::NoNames | StocksEvent::NoHistory(_) => {
-                    println!("::warning::The Stocks thread asked, but oyenza.trade gave no names or year after {at:.2} s");
+                    println!("::warning::The Stocks thread asked, but koygi.trade gave no names or year after {at:.2} s");
                     return;
                 }
             }

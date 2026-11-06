@@ -13,7 +13,7 @@ use crate::settings::Settings;
 use crate::sha256;
 
 /// Where the files live: `<RELEASES>/<tag>/<name>`.
-pub const RELEASES: &str = "https://github.com/lucacadalora/oyenza-studio/releases/download";
+pub const RELEASES: &str = "https://github.com/koygi/koygi/releases/download";
 
 /// One file an add-on downloads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -195,7 +195,7 @@ pub const SYSTEM: Addon = Addon {
 pub const HEALTH: Addon = Addon {
     id: "health",
     title: "Health",
-    blurb: "Your steps from Oyenza on your phone: today against your goal, and your week.",
+    blurb: "Your steps from Koygi on your phone: today against your goal, and your week.",
     mac_blurb: None,
     tag: "",
     files: &[],
@@ -209,7 +209,7 @@ pub const HEALTH: Addon = Addon {
 pub const STOCKS: Addon = Addon {
     id: "stocks",
     title: "Stocks",
-    blurb: "The IHSG and up to 10 IDX stocks from oyenza.trade, 10 minutes behind IDX.",
+    blurb: "The IHSG and up to 10 IDX stocks from koygi.trade, 10 minutes behind IDX.",
     mac_blurb: None,
     tag: "",
     files: &[],
@@ -225,7 +225,7 @@ pub const STOCKS: Addon = Addon {
 pub const SCREEN_RECORDER: Addon = Addon {
     id: "recorder",
     title: "Screen recorder",
-    blurb: "Record your screen from the island, with Oyenza Studio Recorder.",
+    blurb: "Record your screen from the island, with Koygi Island Recorder.",
     mac_blurb: None,
     tag: "",
     files: &[],
@@ -342,7 +342,7 @@ pub const MEETING_NOTES: Addon = Addon {
 };
 
 /// Every add-on, in the order the Add-ons page lists them.
-pub const ALL: [&Addon; 9] = [&PRAYER_TIMES, &JAPANESE_READINGS, &SCRIPT_READER, &SYSTEM, &HEALTH, &STOCKS, &IELTS, &SCREEN_RECORDER, &DOWNLOADER];
+pub const ALL: [&Addon; 8] = [&PRAYER_TIMES, &JAPANESE_READINGS, &SYSTEM, &HEALTH, &STOCKS, &IELTS, &SCREEN_RECORDER, &DOWNLOADER];
 
 /// Whether Japanese readings switch themselves on for a song whose kanji went
 /// unread for want of them (`wants`): only while the person reads
@@ -447,7 +447,7 @@ mod tests {
         assert!(PRAYER_TIMES.downloads() && JAPANESE_READINGS.downloads());
         assert_eq!(Status::Ready.line(&SCRIPT_READER, false), "On");
         assert_eq!(Status::Off.line(&SCRIPT_READER, true), "A teleprompter under your webcam.");
-        assert_eq!(Addon::find("script"), Some(&SCRIPT_READER));
+        assert_eq!(Addon::find("script"), None);
     }
 
     #[test]
@@ -466,6 +466,7 @@ mod tests {
         }
         // Clipboard history left the app after 0.2.8: no add-on by that id.
         assert_eq!(Addon::find("notes"), None);
+        assert_eq!(Addon::find("script"), None);
         assert_eq!(Addon::find("clipboard"), None);
         // Notifications left the add-ons after 0.2.24: it's on wherever Windows
         // lets the copy read notifications, and Settings' tabs row switches it off.
@@ -517,7 +518,7 @@ mod tests {
             assert!(f.matches(bytes), "{name}: size {} sha256 {}", bytes.len(), sha256::hex(&sha256::sha256(bytes)));
         }
         let ja = Addon::find("ja").unwrap();
-        assert_eq!(ja.url(&ja.files[0]), "https://github.com/lucacadalora/oyenza-studio/releases/download/addon-ja-1/ja-readings.dic.zst");
+        assert_eq!(ja.url(&ja.files[0]), "https://github.com/koygi/koygi/releases/download/addon-ja-1/ja-readings.dic.zst");
         assert_eq!(Status::Off.line(ja, false), ja.blurb);
         assert_eq!(Status::Ready.line(ja, false), "On · 3.8 MB on this PC");
         // The Mac app has no Windows reason to give, and says Mac.
@@ -541,7 +542,7 @@ mod tests {
     #[test]
     fn files_come_from_the_release() {
         let a = Addon::find("sholat").unwrap();
-        assert_eq!(a.url(&a.files[1]), "https://github.com/lucacadalora/oyenza-studio/releases/download/addon-sholat-3/adzan.m4a");
+        assert_eq!(a.url(&a.files[1]), "https://github.com/koygi/koygi/releases/download/addon-sholat-3/adzan.m4a");
         assert_eq!(a.size(), 959_353);
         assert!(Addon::find("nope").is_none());
     }
@@ -563,7 +564,7 @@ mod tests {
     fn add_ons_are_listed_in_order_each_with_its_own_id() {
         // The Add-ons page's order: the Downloader last.
         let ids: Vec<&str> = ALL.iter().map(|a| a.id).collect();
-        assert_eq!(ids, ["sholat", "ja", "script", "system", "health", "stocks", "ielts", "recorder", "downloader"]);
+        assert_eq!(ids, ["sholat", "ja", "system", "health", "stocks", "ielts", "recorder", "downloader"]);
         for (i, a) in ALL.iter().enumerate() {
             // The key in settings.json and the folder's name.
             assert!(!a.id.is_empty() && a.id.bytes().all(|b| b.is_ascii_lowercase()), "{}", a.id);
@@ -611,7 +612,7 @@ mod tests {
         }
         assert_eq!(ytdlp_tags[0], ytdlp_tags[1], "yt-dlp: the same version on Windows and the Mac");
         // Our own builds and the notices: each add-on's own pre-release.
-        let ours = "https://github.com/lucacadalora/oyenza-studio/releases/download";
+        let ours = "https://github.com/koygi/koygi/releases/download";
         assert_eq!(w.url(&w.files[2]), format!("{ours}/addon-downloader-1/ffmpeg.exe"));
         assert_eq!(w.url(&w.files[3]), format!("{ours}/addon-downloader-1/NOTICE.txt"));
         for (f, name) in m.files[1..].iter().zip(["qjs", "ffmpeg", "NOTICE.txt"]) {
@@ -664,7 +665,7 @@ mod tests {
         for (d, bytes) in [(DOWNLOADER_WINDOWS, windows), (DOWNLOADER_MAC, mac)] {
             let notice = d.files.iter().find(|f| f.name == "NOTICE.txt").unwrap();
             assert!(notice.matches(bytes), "{}: size {} sha256 {}", d.tag, bytes.len(), sha256::hex(&sha256::sha256(bytes)));
-            assert_eq!(d.url(notice), format!("https://github.com/lucacadalora/oyenza-studio/releases/download/{}/NOTICE.txt", d.tag));
+            assert_eq!(d.url(notice), format!("https://github.com/koygi/koygi/releases/download/{}/NOTICE.txt", d.tag));
         }
     }
 

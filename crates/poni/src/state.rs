@@ -432,15 +432,16 @@ pub struct GameState {
     pub access: FpsAccess,
 }
 
-/// Oyenza sign-in, as the island sees it.
+/// Koygi sign-in, as the island sees it.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub enum OyenzaLink {
+pub enum KoygiLink {
     #[default]
     Off,
     /// A code on screen, waiting for approval in oyenza.app, until mono time `until`.
     Connecting { code: String, url: String, until: f64 },
     Connected { account: String },
 }
+pub type OyenzaLink = KoygiLink;
 
 /// Where the Today page's day stands (`OyenzaState::agenda`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -456,12 +457,12 @@ pub enum AgendaState {
     Unavailable,
 }
 
-/// What the Oyenza tab and its notices show (`pages::oyenza`), and the Today
+/// What the Koygi tab and its notices show (`pages::koygi`), and the Today
 /// page's day (`pages::today`). Oyen's moods never read any of it: money
 /// never makes him happier or a bill sadder.
 #[derive(Clone, Debug, Default)]
-pub struct OyenzaState {
-    pub link: OyenzaLink,
+pub struct KoygiState {
+    pub link: KoygiLink,
     /// The last 7 days of transactions (asked while the page is open).
     pub activity: Option<Activity>,
     /// When each row was first seen, so what lands while you look glows.
@@ -504,6 +505,7 @@ pub struct OyenzaState {
     /// not asked yet). Signing out forgets it with the rest.
     pub pro: Option<bool>,
 }
+pub type OyenzaState = KoygiState;
 
 
 /// Where finding the PC's place stands.
@@ -822,7 +824,8 @@ pub struct AppState {
     pub paired: Vec<PairedPhone>,
     /// Whether the meeting server answers (None = not asked yet: no pairs).
     pub pair_server: Option<bool>,
-    pub oyenza: OyenzaState,
+    pub oyenza: KoygiState,
+    pub koygi: KoygiState,
     /// Where each add-on stands, by id (every one in `poni_core::addons::ALL`).
     pub addons: BTreeMap<&'static str, AddonStatus>,
     /// New versions (`crate::updates`): what Settings, the menu and the
@@ -937,7 +940,8 @@ impl AppState {
             phone: None,
             paired: Vec::new(),
             pair_server: None,
-            oyenza: OyenzaState::default(),
+            oyenza: KoygiState::default(),
+            koygi: KoygiState::default(),
             addons: BTreeMap::new(),
             update: UpdateView::default(),
             prayer: PrayerState::default(),
@@ -1033,7 +1037,7 @@ impl AppState {
 
     /// The Script reader add-on is on: the Script tab shows.
     pub fn script_on(&self) -> bool {
-        self.addon(poni_core::addons::SCRIPT_READER.id) == AddonStatus::Ready
+        false
     }
 
     /// The System add-on is on: the System tab shows.
@@ -1086,9 +1090,9 @@ impl AppState {
         }
     }
 
-    /// The Meeting notes add-on is on: the Notes tab shows.
+    /// Meeting notes tab is completely omitted from the Dynamic Island header.
     pub fn notes_on(&self) -> bool {
-        true
+        false
     }
 
     /// Prayer times is on and its places are read: the tab and reminders run.
@@ -1255,11 +1259,7 @@ impl AppState {
     }
 
     /// Accent for media UI: art colour when available, else the system accent.
-    /// The Oyen theme keeps to Oyen's orange.
     pub fn media_accent(&self) -> Color {
-        if self.settings.theme == poni_core::settings::Theme::Oren {
-            return self.accent;
-        }
         self.media.as_ref().and_then(|m| m.art_color).unwrap_or(self.accent)
     }
 }
@@ -1427,9 +1427,9 @@ mod tests {
         assert!(!st.show_usage_notice(false, false));
         assert!(st.notice.is_none());
         // ...and for another notice to leave.
-        st.notify(Icon::Check, palette::GREEN, "Connected to Oyenza", "as a•••@example.com", 6.0, None);
+        st.notify(Icon::Check, palette::GREEN, "Connected to Koygi", "as a•••@example.com", 6.0, None);
         assert!(!st.show_usage_notice(true, false));
-        assert_eq!(st.notice.as_ref().map(|n| n.title.as_str()), Some("Connected to Oyenza"));
+        assert_eq!(st.notice.as_ref().map(|n| n.title.as_str()), Some("Connected to Koygi"));
         st.notice = None;
         st.now = 130.0;
         assert!(st.show_usage_notice(true, false));
@@ -1466,16 +1466,20 @@ mod tests {
             [color(AlertKind::Near(90)), color(AlertKind::Out), color(AlertKind::Low), color(AlertKind::Back)],
             [accent, palette::ORANGE, palette::ORANGE, palette::GREEN]
         );
-        // Out with Oyenza Inference connected: the nudge follows the reset time while both fit...
+        // Out with Koygi Inference connected: the nudge follows the reset time while both fit...
         let mut a = alert(ProviderId::Claude, AlertKind::Out, "Claude Code: 5-hour used up");
-        a.nudge = Some("Keep going on Oyenza Inference".into());
-        assert_eq!(usage_notice(&a, accent, 0.0).subtitle, "Resets 14:20 \u{b7} Keep going on Oyenza Inference");
+        a.nudge = Some("Keep going on Koygi Inference".into());
+        assert_eq!(usage_notice(&a, accent, 0.0).subtitle, "Resets 14:20 \u{b7} Keep going on Koygi Inference");
         a.subtitle = "Resets 2:20 PM".into();
-        assert_eq!(usage_notice(&a, accent, 0.0).subtitle, "Resets 2:20 PM \u{b7} Keep going on Oyenza Inference");
+        assert_eq!(usage_notice(&a, accent, 0.0).subtitle, "Resets 2:20 PM \u{b7} Keep going on Koygi Inference");
+        for fits in ["Resets 10:20 AM", "Resets Thu 09:00", "Resets Tue 3 Nov", "None left for now"] {
+            a.subtitle = fits.into();
+            assert_eq!(usage_notice(&a, accent, 0.0).subtitle, format!("{fits} \u{b7} Keep going on Koygi Inference"), "{fits}");
+        }
         // ...else it stands alone (the AI tab has the reset time).
-        for long in ["Resets 10:20 AM", "Resets Thu 09:00", "Resets Tue 3 Nov", "None left for now", "Premium requests \u{b7} resets Tue 1 Dec"] {
+        for long in ["Premium requests \u{b7} resets Tue 1 Dec"] {
             a.subtitle = long.into();
-            assert_eq!(usage_notice(&a, accent, 0.0).subtitle, "Keep going on Oyenza Inference", "{long}");
+            assert_eq!(usage_notice(&a, accent, 0.0).subtitle, "Keep going on Koygi Inference", "{long}");
         }
         // Without a nudge the alert's own line stays as it is.
         a.nudge = None;

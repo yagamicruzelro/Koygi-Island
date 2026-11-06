@@ -42,7 +42,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-const USER_AGENT: &str = concat!("OyenzaStudio/", env!("CARGO_PKG_VERSION"), " (+https://github.com/lucacadalora/oyenza-studio)");
+const USER_AGENT: &str = concat!("koygi/", env!("CARGO_PKG_VERSION"), " (+https://github.com/koygi/koygi)");
 /// Budget for one request: connect, headers and body.
 const TIMEOUT: Duration = Duration::from_secs(8);
 /// A typed key longer than this is a paste gone wrong.
@@ -677,7 +677,7 @@ impl Worker {
         let answer = self.send_one(&req);
         match oyenza::started(&answer, &base, crate::clock::unix_now()) {
             Ok(p) => {
-                crate::pinfo!("usage: oyenza: showing a code to connect");
+                crate::pinfo!("usage: koygi: showing a code to connect");
                 self.set_link(InferenceLink::Code { code: p.code.clone(), url: p.url.clone(), expires_at: p.expires_at });
                 self.pending = Some(p);
             }
@@ -704,14 +704,14 @@ impl Worker {
                 self.pending = None;
                 match crate::services::secret::save(&crate::paths::usage_key_path(oyenza::SECRET), key.as_str()) {
                     Ok(()) => {
-                        crate::pinfo!("usage: oyenza: connected");
+                        crate::pinfo!("usage: koygi: connected");
                         self.keys.insert(oyenza::SECRET);
                         self.send(UsageEvent::Keys(self.keys.clone()));
                         self.set_link(InferenceLink::On { account });
                         self.reread(oyenza::SECRET);
                     }
                     Err(e) => {
-                        crate::pwarn!("usage: oyenza: couldn't keep the key ({e})");
+                        crate::pwarn!("usage: koygi: couldn't keep the key ({e})");
                         self.set_link(InferenceLink::Failed(oyenza::OTHER.into()));
                     }
                 }
@@ -723,13 +723,13 @@ impl Worker {
     /// OFFLINE, BUSY, OTHER}`, for the card's `connect_failure_text`.
     fn connect_failed(&mut self, why: &'static str) {
         self.pending = None;
-        crate::pinfo!("usage: oyenza: not connected ({why})");
+        crate::pinfo!("usage: koygi: not connected ({why})");
         self.set_link(InferenceLink::Failed(why.into()));
     }
 
     fn cancel_connect(&mut self) {
         if self.pending.take().is_some() {
-            crate::pinfo!("usage: oyenza: connecting cancelled");
+            crate::pinfo!("usage: koygi: connecting cancelled");
         }
         let link = if self.keys.contains(oyenza::SECRET) { InferenceLink::On { account: self.inference_account() } } else { InferenceLink::Off };
         self.set_link(link);
@@ -752,10 +752,10 @@ impl Worker {
         };
         self.drop_key(oyenza::SECRET);
         if told {
-            crate::pinfo!("usage: oyenza: disconnected");
+            crate::pinfo!("usage: koygi: disconnected");
             self.set_link(InferenceLink::Off);
         } else {
-            crate::pwarn!("usage: oyenza: Oyenza Inference couldn't be told; the key is gone from this computer");
+            crate::pwarn!("usage: koygi: Koygi Inference couldn't be told; the key is gone from this computer");
             self.set_link(InferenceLink::Failed(oyenza::UNTOLD.into()));
         }
         self.reread(oyenza::SECRET);
@@ -905,7 +905,7 @@ fn run_login(program: Option<PathBuf>) {
         Some(p) => format!("{} auth login", quote(&p.to_string_lossy())),
         None => format!("\"${{SHELL:-/bin/zsh}}\" -lic {}", quote("claude auth login")),
     };
-    let script = format!("#!/bin/sh\n# Oyenza Studio's AI tab: Claude Code's own sign-in.\n{login} && echo && echo 'Signed in. Oyenza Studio reads it when you open the AI tab.'\n");
+    let script = format!("#!/bin/sh\n# Koygi Island's AI tab: Claude Code's own sign-in.\n{login} && echo && echo 'Signed in. Koygi Island reads it when you open the AI tab.'\n");
     let dir = crate::paths::cache_dir();
     let path = dir.join("Claude Code sign-in.command");
     let _ = std::fs::remove_file(&path);

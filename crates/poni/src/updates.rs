@@ -175,7 +175,7 @@ impl Updater {
             if in_settings {
                 st.update.said = Some(Said::UpToDate);
             } else {
-                st.notify(Icon::CheckCircle, palette::GREEN, "Oyenza Studio is up to date", format!("{VERSION} is the latest version."), ANSWER_S, None);
+                st.notify(Icon::CheckCircle, palette::GREEN, "Koygi Island is up to date", format!("{VERSION} is the latest version."), ANSWER_S, None);
             }
             return false;
         };
@@ -338,8 +338,33 @@ impl Updater {
     /// Put a waiting notice on the island if it is `free` (shown, nobody
     /// away, no other notice, closed): "Updated to" first, then a new
     /// version, until it is seen ([`Updater::seen`]). True when one went up.
-    pub fn announce(&mut self, _st: &mut AppState, _free: bool) -> bool {
-        false
+    pub fn announce(&mut self, st: &mut AppState, free: bool) -> bool {
+        if st.update.sheet {
+            self.seen(st);
+        }
+        if !free {
+            return false;
+        }
+        if self.updated {
+            self.updated = false;
+            let headline = self.memory.latest.as_ref().filter(|r| r.version == VERSION).map(|r| r.headline.clone());
+            st.notice = Some(updated_notice(headline, st.now + UPDATED_S));
+            return true;
+        }
+        if !self.memory.should_announce(VERSION, MAC) {
+            return false;
+        }
+        // A copy that installs downloads first, then tells (a failed
+        // download tells too, with the release page or the DMG).
+        if self.installs && matches!(self.setup, Setup::None | Setup::Fetching) {
+            return false;
+        }
+        let Some(rel) = st.update.offer.clone() else { return false };
+        crate::pinfo!("updates: telling about {}", rel.version);
+        // No time limit: it stays until Update or Hide. Another notice may
+        // take its place; it comes back once the island is free again.
+        st.notice = Some(new_version_notice(&rel, st.accent, f64::INFINITY));
+        true
     }
 
     /// The offer Settings and the menu show, from what is remembered (no
@@ -474,9 +499,9 @@ mod tests {
     /// A later release than this build, remembered from an earlier look.
     fn remembered(dir: &std::path::Path, setup: &[u8]) -> PathBuf {
         let next = format!("{}.99", VERSION);
-        let repo = "https://github.com/lucacadalora/oyenza-studio/releases";
+        let repo = "https://github.com/koygi/koygi/releases";
         let d = Download {
-            url: format!("{repo}/download/v{next}/Oyenza-Studio-Setup-{next}.exe"),
+            url: format!("{repo}/download/v{next}/Koygi-Island-Setup-{next}.exe"),
             size: setup.len() as u64,
             sha256: poni_core::sha256::hex(&poni_core::sha256::sha256(setup)),
         };
@@ -533,10 +558,10 @@ mod tests {
         assert!(u.ask(now), "a read starts at once");
         u.begin();
         assert!(!u.ask(now), "not a second one while it runs");
-        let repo = "https://github.com/lucacadalora/oyenza-studio/releases";
+        let repo = "https://github.com/koygi/koygi/releases";
         let this = Release { version: VERSION.into(), date: String::new(), headline: "This".into(), notes: format!("{repo}/tag/v{VERSION}"), windows: None, mac: None };
         assert!(!u.checked(&mut st, Ok(this), now));
-        assert_eq!(st.notice.as_ref().map(|n| n.title.as_str()), Some("Oyenza Studio is up to date"));
+        assert_eq!(st.notice.as_ref().map(|n| n.title.as_str()), Some("Koygi Island is up to date"));
         assert!(st.notice.as_ref().is_some_and(|n| n.subtitle.contains(VERSION)));
         st.notice = None;
         assert!(u.ask(now));
@@ -632,7 +657,7 @@ mod tests {
         let mut st = AppState::new(Settings::default(), Store::default());
         let mut u = Updater::open(dir.join("update.json"), dir.join("setups"), &mut st, 10);
         let now = unix_now();
-        let repo = "https://github.com/lucacadalora/oyenza-studio/releases";
+        let repo = "https://github.com/koygi/koygi/releases";
         let this = Release { version: VERSION.into(), date: String::new(), headline: "This".into(), notes: format!("{repo}/tag/v{VERSION}"), windows: None, mac: None };
         st.update.said = Some(Said::Checking);
         assert!(u.ask(now));
@@ -670,10 +695,10 @@ mod tests {
     fn install_on_next_start_is_remembered_and_old_setups_go() {
         let dir = folder("next");
         let path = remembered(&dir, b"setup bytes");
-        std::fs::write(dir.join("setups/Oyenza-Studio-Setup-0.0.1.exe"), b"old").unwrap();
+        std::fs::write(dir.join("setups/Koygi-Island-Setup-0.0.1.exe"), b"old").unwrap();
         let mut st = AppState::new(Settings::default(), Store::default());
         let mut u = Updater::open(path.clone(), dir.join("setups"), &mut st, 10);
-        assert!(!dir.join("setups/Oyenza-Studio-Setup-0.0.1.exe").exists(), "an older version's Setup goes at start");
+        assert!(!dir.join("setups/Koygi-Island-Setup-0.0.1.exe").exists(), "an older version's Setup goes at start");
         u.install_on_next_start(&mut st);
         assert!(st.update.next_start);
         let (memory, _) = load_json::<Memory>(&path);

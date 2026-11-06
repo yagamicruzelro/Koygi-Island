@@ -1,6 +1,6 @@
-; Oyenza Studio installer (NSIS 3). Per-user install, no admin rights needed.
+; Koygi Island installer (NSIS 3). Per-user install, no admin rights needed.
 ;
-; The name shown to people is "Oyenza Studio" (the 0.1.x versions from 0.1.2 on said "Oyen Poni"); the install folder,
+; The name shown to people is "Koygi Island" (the 0.1.x versions from 0.1.2 on said "Oyen Poni"); the install folder,
 ; the uninstall key, the Run value and poni.exe keep the name "Poni", so older installs upgrade in place.
 ;
 ; Build (Linux/macOS/Windows with makensis):
@@ -34,7 +34,7 @@ BrandingText "${APPNAME} ${VERSION}"
 VIProductVersion "0.2.25.0"
 VIAddVersionKey "ProductName" "${APPNAME}"
 VIAddVersionKey "CompanyName" "${PUBLISHER}"
-VIAddVersionKey "FileDescription" "Oyenza Studio installer"
+VIAddVersionKey "FileDescription" "Koygi Island installer"
 VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "LegalCopyright" "Copyright (C) 2026 ${PUBLISHER}"
@@ -74,9 +74,9 @@ VIAddVersionKey "LegalCopyright" "Copyright (C) 2026 ${PUBLISHER}"
 !define MUI_ABORTWARNING
 !define MUI_COMPONENTSPAGE_SMALLDESC
 !define MUI_FINISHPAGE_RUN "$INSTDIR\poni.exe"
-!define MUI_FINISHPAGE_RUN_TEXT "Launch Oyenza Studio now"
-!define MUI_WELCOMEPAGE_TITLE "Welcome to Oyenza Studio"
-!define MUI_WELCOMEPAGE_TEXT "Oyenza Studio puts a living notch at the top of your screen: music with synced lyrics, your day, a focus timer, your steps, a file shelf, tasks and more.$\r$\n$\r$\nIt installs just for you and doesn't need administrator rights."
+!define MUI_FINISHPAGE_RUN_TEXT "Launch Koygi Island now"
+!define MUI_WELCOMEPAGE_TITLE "Welcome to Koygi Island"
+!define MUI_WELCOMEPAGE_TEXT "Koygi Island puts a living notch at the top of your screen: music with synced lyrics, your day, a focus timer, your steps, a file shelf, tasks and more.$\r$\n$\r$\nIt installs just for you and doesn't need administrator rights."
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_COMPONENTS
@@ -86,7 +86,7 @@ VIAddVersionKey "LegalCopyright" "Copyright (C) 2026 ${PUBLISHER}"
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
 
-Section "Oyenza Studio" SecMain
+Section "Koygi Island" SecMain
   SectionIn RO
   ; Close a running copy so the exe can be replaced.
   !insertmacro StopPoni
@@ -112,7 +112,7 @@ Section "Oyenza Studio" SecMain
   WriteRegDWORD HKCU "${UNINST_KEY}" "EstimatedSize" 7680
 SectionEnd
 
-Section "Start Oyenza Studio with Windows" SecAutostart
+Section "Start Koygi Island with Windows" SecAutostart
   ; Same value the app's own "Start with Windows" toggle writes.
   WriteRegStr HKCU "${RUN_KEY}" "Poni" '"$INSTDIR\poni.exe"'
 SectionEnd
@@ -126,7 +126,7 @@ Function .onInit
 FunctionEnd
 
 Function .onInstSuccess
-  ; The finish page's "Launch Oyenza Studio now" never shows in silent mode: /reopen starts it.
+  ; The finish page's "Launch Koygi Island now" never shows in silent mode: /reopen starts it.
   ${If} ${Silent}
     ${GetParameters} $R0
     ClearErrors
@@ -138,8 +138,8 @@ Function .onInstSuccess
 FunctionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "The Oyenza Studio app and a Start Menu shortcut."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecAutostart} "Open Oyenza Studio automatically when you sign in. You can change this later from its menu."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} "The Koygi Island app and a Start Menu shortcut."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecAutostart} "Open Koygi Island automatically when you sign in. You can change this later from its menu."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 Section "Uninstall"

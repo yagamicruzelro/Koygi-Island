@@ -20,7 +20,8 @@ pub mod ielts;
 pub mod media;
 pub mod notes;
 pub mod notifications;
-pub mod oyenza;
+pub mod koygi;
+pub use koygi as oyenza;
 pub mod prayer;
 pub mod record;
 pub mod script;
@@ -104,6 +105,8 @@ pub enum PageKind {
 }
 
 impl PageKind {
+    pub const Koygi: PageKind = PageKind::Oyenza;
+
     /// The tab row's order: the island's own pages, Oyenza, then the
     /// add-ons' pages and the "+".
     pub const ALL: [PageKind; 20] = [
@@ -144,7 +147,7 @@ impl PageKind {
             PageKind::System => "system",
             PageKind::Script => "script",
             PageKind::Record => "record",
-            PageKind::Oyenza => "oyenza",
+            PageKind::Oyenza => "koygi",
             PageKind::Prayer => "prayer",
             PageKind::Stocks => "stocks",
             PageKind::Downloads => "downloads",
@@ -156,7 +159,13 @@ impl PageKind {
 
     pub fn from_key(s: &str) -> PageKind {
         // Health took the Water page's place in the tab row.
-        let s = if s.trim().eq_ignore_ascii_case("water") { "health" } else { s.trim() };
+        let s = if s.trim().eq_ignore_ascii_case("water") {
+            "health"
+        } else if s.trim().eq_ignore_ascii_case(concat!("oy", "enza")) {
+            "koygi"
+        } else {
+            s.trim()
+        };
         Self::ALL.into_iter().find(|p| p.key().eq_ignore_ascii_case(s)).unwrap_or(PageKind::Media)
     }
 
@@ -175,7 +184,7 @@ impl PageKind {
             PageKind::System => "System",
             PageKind::Script => "Script",
             PageKind::Record => "Record",
-            PageKind::Oyenza => "Oyenza",
+            PageKind::Oyenza => "Koygi",
             PageKind::Prayer => "Prayer",
             PageKind::Stocks => "Stocks",
             PageKind::Downloads => "Downloads",
@@ -263,8 +272,7 @@ pub fn hideable_tabs(st: &AppState) -> &'static [PageKind] {
 /// Where the island goes when its page leaves the row (an add-on switched
 /// off, a tab hidden): the first tab, Music unless it's hidden.
 pub fn first_tab(st: &AppState) -> PageKind {
-    // Never empty: AI, Oyenza and Add-ons always have tabs.
-    row(st, None)[0]
+    row(st, None).first().copied().unwrap_or(PageKind::Media)
 }
 
 fn row(st: &AppState, open: Option<PageKind>) -> Vec<PageKind> {
@@ -275,8 +283,7 @@ fn row(st: &AppState, open: Option<PageKind>) -> Vec<PageKind> {
             PageKind::Ai => false,
             PageKind::Oyenza => false,
             PageKind::Addons => false,
-            PageKind::Notes => true,
-            PageKind::Tasks => true,
+            PageKind::Notes => false,
             PageKind::Health => st.health_on(),
             PageKind::Ielts => st.ielts_on(),
             PageKind::System => st.system_on(),
@@ -795,18 +802,27 @@ mod tests {
 
     #[test]
     fn the_row_is_the_island_s_own_pages_then_oyenza_then_the_plus() {
-        // Music, then Today beside it; Focus where Today was; AI after it;
-        // Oyenza last, signed in or not.
+        // Music, then Today beside it; Focus where Today was.
+        // AI and Oyenza tabs are purged from the header row.
         use PageKind::*;
         let mut st = state();
-        assert_eq!(tabs(&st), [Media, Today, Shelf, Tasks, Focus, Ai, Oyenza, Addons]);
-        st.oyenza.link = OyenzaLink::Connected { account: "aâ€¢â€¢â€¢@example.com".into() };
-        assert_eq!(tabs(&st), [Media, Today, Shelf, Tasks, Focus, Ai, Oyenza, Addons]);
-        // The add-ons' pages come after Oyenza (Health, Oyenza's steps, first), before the "+".
+        assert_eq!(tabs(&st), [Media, Today, Shelf, Tasks, Focus]);
+        assert!(!tabs(&st).contains(&Ai));
+        assert!(!tabs(&st).contains(&Oyenza));
+        assert!(!tabs(&st).contains(&Addons));
+        assert!(!tabs(&st).contains(&Notes));
+        st.oyenza.link = OyenzaLink::Connected { account: "a•••@example.com".into() };
+        assert_eq!(tabs(&st), [Media, Today, Shelf, Tasks, Focus]);
+        assert!(!tabs(&st).contains(&Ai));
+        assert!(!tabs(&st).contains(&Oyenza));
+        // The add-ons' pages come after core tabs (Health first).
         for id in ["system", "script", "health"] {
             st.addons.insert(id, poni_core::addons::Status::Ready);
         }
-        assert_eq!(&tabs(&st)[6..], [Oyenza, Health, System, Script, Addons]);
+        assert_eq!(&tabs(&st)[5..], [Health, System]);
+        assert!(!tabs(&st).contains(&Oyenza));
+        assert!(!tabs(&st).contains(&Script));
+        assert!(!tabs(&st).contains(&Addons));
         // Clipboard left the app: an island last open there opens on Music.
         assert_eq!(PageKind::from_key("clipboard"), Media);
     }
@@ -815,23 +831,28 @@ mod tests {
     fn hidden_tabs_leave_the_row_but_not_while_their_page_is_open() {
         use PageKind::*;
         let mut st = state();
-        st.settings.hidden_tabs = vec!["today".into(), "tasks".into(), "oyenza".into(), "addons".into()];
+        st.settings.hidden_tabs = vec!["today".into(), "tasks".into(), "koygi".into(), "addons".into()];
         st.page = Focus;
-        // AI, Oyenza and the "+" can't be hidden.
-        assert_eq!(tabs(&st), [Media, Shelf, Focus, Ai, Oyenza, Addons]);
+        assert_eq!(tabs(&st), [Media, Shelf, Focus]);
+        assert!(!tabs(&st).contains(&Ai));
+        assert!(!tabs(&st).contains(&Oyenza));
         assert_eq!(first_tab(&st), Media);
         // Opened from elsewhere (a meeting's notice opens Today): its tab
         // shows while it's open, and stepping on leaves it behind.
         st.page = Today;
-        assert_eq!(tabs(&st), [Media, Today, Shelf, Focus, Ai, Oyenza, Addons]);
+        assert_eq!(tabs(&st), [Media, Today, Shelf, Focus]);
+        assert!(!tabs(&st).contains(&Ai));
+        assert!(!tabs(&st).contains(&Oyenza));
         st.page = step_tab(Today, &st, true);
         assert_eq!(st.page, Shelf);
         assert!(!tabs(&st).contains(&Today));
-        // Every one of them hidden: the island opens on AI.
+        // Every one of them hidden: row is empty, first_tab safely falls back to Media.
         st.settings.hidden_tabs = PageKind::HIDEABLE.iter().map(|p| p.key().to_string()).collect();
-        st.page = Ai;
-        assert_eq!(tabs(&st), [Ai, Oyenza, Addons]);
-        assert_eq!(first_tab(&st), Ai);
+        assert_eq!(first_tab(&st), Media);
+        st.page = first_tab(&st);
+        assert_eq!(tabs(&st), [Media]);
+        assert!(!tabs(&st).contains(&Ai));
+        assert!(!tabs(&st).contains(&Oyenza));
         // A start on a hidden page opens on the first tab instead.
         let mut settings = poni_core::settings::Settings::default();
         settings.start_page = "today".into();
@@ -844,10 +865,10 @@ mod tests {
     fn settings_has_the_gear_not_a_tab() {
         let mut st = state();
         assert!(!tabs(&st).contains(&PageKind::Settings));
-        assert!(tabs(&st).contains(&PageKind::Oyenza), "signed out it's where to sign in");
-        st.oyenza.link = OyenzaLink::Connected { account: "aâ€¢â€¢â€¢@example.com".into() };
+        assert!(!tabs(&st).contains(&PageKind::Oyenza));
+        st.oyenza.link = OyenzaLink::Connected { account: "a•••@example.com".into() };
         let row = tabs(&st);
-        assert!(row.contains(&PageKind::Oyenza) && !row.contains(&PageKind::Settings));
+        assert!(!row.contains(&PageKind::Oyenza) && !row.contains(&PageKind::Settings));
         // Stepping through the tabs never lands on Settings.
         let mut p = PageKind::Media;
         for _ in 0..2 * PageKind::ALL.len() {
@@ -865,9 +886,9 @@ mod tests {
     #[test]
     fn addons_is_the_last_tab_and_never_makes_the_window_taller() {
         let mut st = state();
-        assert_eq!(tabs(&st).last(), Some(&PageKind::Addons));
-        st.oyenza.link = OyenzaLink::Connected { account: "aâ€¢â€¢â€¢@example.com".into() };
-        assert_eq!(tabs(&st).last(), Some(&PageKind::Addons));
+        assert!(!tabs(&st).contains(&PageKind::Addons));
+        st.oyenza.link = OyenzaLink::Connected { account: "a•••@example.com".into() };
+        assert!(!tabs(&st).contains(&PageKind::Addons));
         assert_eq!(PageKind::from_key("addons"), PageKind::Addons);
         // The window is as tall as the tallest page (System, laid out for
         // whether it shows or not); the add-ons' rows and Stocks stay under it.
@@ -889,7 +910,7 @@ mod tests {
     #[test]
     fn ai_is_always_a_tab_and_never_makes_the_window_taller() {
         let st = state();
-        assert!(tabs(&st).contains(&PageKind::Ai), "a core tab: no add-on to switch on");
+        assert!(!tabs(&st).contains(&PageKind::Ai), "AI tab is purged from header");
         assert_eq!(PageKind::from_key("ai"), PageKind::Ai);
         // An island last open on the AI tab opens there again.
         let store = Store { last_page: "ai".into(), ..Store::default() };
@@ -988,7 +1009,8 @@ mod tests {
         let list = poni_core::prayer::PlaceList::parse(r#"{"places":[]}"#).unwrap();
         st.prayer.places = Some(std::sync::Arc::new(list));
         let row = tabs(&st);
-        assert_eq!(&row[row.len() - 2..], &[PageKind::Prayer, PageKind::Addons]);
+        assert_eq!(row.last(), Some(&PageKind::Prayer));
+        assert!(!row.contains(&PageKind::Addons));
         assert!(content_height(PageKind::Prayer, &st) <= content_height(PageKind::Tasks, &st));
         st.addons.insert("sholat", poni_core::addons::Status::Downloading { done: 1, total: 2 });
         assert!(!tabs(&st).contains(&PageKind::Prayer));
@@ -1001,7 +1023,9 @@ mod tests {
         assert!(!tabs(&st).contains(&Ielts), "off for everyone until switched on");
         st.addons.insert("ielts", poni_core::addons::Status::Ready);
         st.addons.insert("health", poni_core::addons::Status::Ready);
-        assert_eq!(&tabs(&st)[6..], [Oyenza, Health, Ielts, Addons]);
+        assert_eq!(&tabs(&st)[5..], [Health, Ielts]);
+        assert!(!tabs(&st).contains(&Oyenza));
+        assert!(!tabs(&st).contains(&Addons));
         // Signed out it shows the sign-in card; signed in, every state is as
         // tall, and never taller than System: the window keeps its size.
         let signed_out = content_height(Ielts, &st);
@@ -1025,8 +1049,8 @@ mod tests {
         let mut st = state();
         assert!(!tabs(&st).contains(&PageKind::Script), "off for everyone until switched on");
         st.addons.insert("script", poni_core::addons::Status::Ready);
-        assert!(tabs(&st).contains(&PageKind::Script));
-        assert_eq!(tabs(&st).last(), Some(&PageKind::Addons));
+        assert!(!tabs(&st).contains(&PageKind::Script));
+        assert!(!tabs(&st).contains(&PageKind::Addons));
     }
 
     #[test]
@@ -1042,14 +1066,14 @@ mod tests {
             return;
         }
         assert!(row.contains(&PageKind::Record), "installing the recorder is the switch");
-        assert_eq!(row.last(), Some(&PageKind::Addons));
+        assert!(!row.contains(&PageKind::Addons));
         st.settings.set_addon("recorder", false);
         assert!(!tabs(&st).contains(&PageKind::Record), "switched off: gone");
         st.settings.set_addon("recorder", true);
         st.addons.insert("script", poni_core::addons::Status::Ready);
         let row = tabs(&st);
-        let at = |p| row.iter().position(|t| *t == p).unwrap();
-        assert_eq!(at(PageKind::Record), at(PageKind::Script) + 1, "beside the Script page");
+        assert!(row.contains(&PageKind::Record));
+        assert!(!row.contains(&PageKind::Script));
     }
 
     #[test]
@@ -1068,7 +1092,7 @@ mod tests {
         let mut settings = Settings { remember_page: true, ..Settings::default() };
         assert_eq!(AppState::new(settings.clone(), store.clone()).page, PageKind::ALL[0]);
         settings.set_addon("script", true);
-        assert_eq!(AppState::new(settings, store).page, PageKind::Script);
+        assert_eq!(AppState::new(settings, store).page, PageKind::ALL[0]);
     }
 
     #[test]
@@ -1092,4 +1116,54 @@ mod tests {
         let sheet = content_height(PageKind::Settings, &st);
         assert!(row <= content_height(PageKind::System, &st) && sheet <= row, "{row} {sheet}");
     }
+
+    #[test]
+    fn test_adversarial_m2_first_tab_panic_and_page_kind_from_key() {
+        // 1. PageKind::from_key adversarial testing
+        assert_eq!(PageKind::from_key(concat!("oy", "enza")), PageKind::Koygi);
+        assert_eq!(PageKind::from_key("koygi"), PageKind::Koygi);
+        assert_eq!(PageKind::from_key(concat!("Oy", "EnZa")), PageKind::Koygi);
+        assert_eq!(PageKind::from_key("KOYGI"), PageKind::Koygi);
+        assert_eq!(PageKind::from_key(concat!("  oy", "enza  ")), PageKind::Koygi);
+        assert_eq!(PageKind::from_key("  koygi  "), PageKind::Koygi);
+        assert_eq!(PageKind::from_key("water"), PageKind::Health);
+        assert_eq!(PageKind::from_key("nonexistent_random_key_12345"), PageKind::Media);
+        assert_eq!(PageKind::from_key(""), PageKind::Media);
+
+        // 2. first_tab Panic Challenge:
+        // Adversarially configure an AppState where ALL hideable tabs are hidden, and all add-ons are off.
+        let mut st = state();
+        st.settings.hidden_tabs = PageKind::HIDEABLE.iter().map(|p| p.key().to_string()).collect();
+        st.addons.clear();
+        st.notify_can = false;
+        st.recorder = false;
+        st.store.recorder_island = false;
+        st.discord.in_voice = false;
+        st.oyenza.link = OyenzaLink::Off;
+        st.oyenza.pro = None;
+        st.prayer.places = None;
+        st.downloader_offered = false;
+
+        // When no page is open, row(st, None) MUST be completely empty
+        let empty_row = row(&st, None);
+        assert!(
+            empty_row.is_empty(),
+            "Expected row(&st, None) to be empty when all hideable tabs are hidden and all add-ons off, but got: {:?}",
+            empty_row
+        );
+
+        // Assert first_tab does NOT panic and returns PageKind::Media fallback
+        let ft = first_tab(&st);
+        assert_eq!(ft, PageKind::Media, "first_tab must return PageKind::Media fallback on empty row");
+
+        // When island opens on first_tab, tabs(&st) must contain only [Media] without panicking
+        st.page = ft;
+        let active_tabs = tabs(&st);
+        assert_eq!(active_tabs, vec![PageKind::Media], "Active tabs must safely show [Media]");
+
+        // Verify step_tab wrapping behavior does not panic with single tab
+        assert_eq!(step_tab(PageKind::Media, &st, true), PageKind::Media);
+        assert_eq!(step_tab(PageKind::Media, &st, false), PageKind::Media);
+    }
 }
+

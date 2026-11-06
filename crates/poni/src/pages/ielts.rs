@@ -51,7 +51,7 @@ const DISCLAIMER: &str = "IELTS\u{ae} is a trademark of the IELTS partners. Not 
 const MIC_SETTINGS: &str =
     if cfg!(target_os = "macos") { "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone" } else { "ms-settings:privacy-microphone" };
 const SIGN_IN_TITLE: &str = "Latihan IELTS Speaking bareng Oyen";
-const SIGN_IN_BODY: &str = "Oyen jadi examiner IELTS kamu: nanya Part 1 sampai 3, dengerin jawabanmu, kasih band score, terus nge-roast. Masuk ke Oyenza dulu buat mulai.";
+const SIGN_IN_BODY: &str = "Oyen jadi examiner IELTS kamu: nanya Part 1 sampai 3, dengerin jawabanmu, kasih band score, terus nge-roast. Masuk ke Koygi dulu buat mulai.";
 
 pub fn height(st: &AppState) -> f32 {
     if !signed_in(st) {

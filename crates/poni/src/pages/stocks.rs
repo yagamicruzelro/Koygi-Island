@@ -380,7 +380,7 @@ fn list(ui: &mut Ui, st: &mut AppState, r: Rect, dt: f32, moving: &mut bool) {
             save |= !s.editing;
         }
     }
-    let credit = "Prices from oyenza.trade, 10 min behind IDX";
+    let credit = "Prices from koygi.trade, 10 min behind IDX";
     ui.c.text(credit, Rect::new(line.x, add.y + 28.0, line.w, 14.0), &TextStyle::caption().color(palette::TEXT_FAINT));
 
     // The list fades out at an edge that scrolls further.
@@ -633,7 +633,7 @@ fn search(ui: &mut Ui, st: &mut AppState, r: Rect) {
     if results.is_empty() {
         let line = match (&names, st.stocks.names_failed) {
             (_, _) if st.store.stocks.full() => "Your list is full: remove a stock first.".to_string(),
-            (None, false) => "Getting every listed stock from oyenza.trade\u{2026}".to_string(),
+            (None, false) => "Getting every listed stock from koygi.trade\u{2026}".to_string(),
             (_, _) if s.query.trim().is_empty() => "Type a code or a company's name.".to_string(),
             (_, _) if code.as_ref().is_some_and(|c| st.store.stocks.has(c)) => format!("{} is on your list already.", code.unwrap_or_default()),
             (None, true) => match &typed {
@@ -709,8 +709,8 @@ fn detail(ui: &mut Ui, st: &mut AppState, r: Rect) {
     let Some(q) = q else {
         let line = match (board, st.stocks.trouble) {
             (None, Some(t)) => trouble_text(t).to_string(),
-            (None, None) => "Getting prices from oyenza.trade\u{2026}".to_string(),
-            (Some(b), _) if b.missing.contains(&pick) => format!("oyenza.trade doesn't list {pick}."),
+            (None, None) => "Getting prices from koygi.trade\u{2026}".to_string(),
+            (Some(b), _) if b.missing.contains(&pick) => format!("koygi.trade doesn't list {pick}."),
             (Some(_), _) => format!("Getting {pick}\u{2026}"),
         };
         let m = Rect::new(r.x, r.y + CHART_Y, r.w, CHART_H);
@@ -760,7 +760,7 @@ fn detail(ui: &mut Ui, st: &mut AppState, r: Rect) {
             Range::Day if line.values.is_empty() => "The day's line starts at the opening bell.",
             Range::Day => "The day's line fills in as IDX trades.",
             _ if st.stocks.no_year.contains(&pick) => "No chart for this range yet.",
-            _ => "Getting the year from oyenza.trade\u{2026}",
+            _ => "Getting the year from koygi.trade\u{2026}",
         };
         ui.c.text(msg, chart, &TextStyle::footnote().color(palette::TEXT_FAINT).center());
     }
@@ -895,16 +895,16 @@ fn status_line(st: &AppState, board: Option<&Board>) -> (String, bool) {
 fn trouble_word(t: Trouble) -> &'static str {
     match t {
         Trouble::Offline => "Offline",
-        Trouble::Paused => "Paused on oyenza.trade",
-        Trouble::Server => "oyenza.trade didn't answer",
+        Trouble::Paused => "Paused on koygi.trade",
+        Trouble::Server => "koygi.trade didn't answer",
     }
 }
 
 fn trouble_text(t: Trouble) -> &'static str {
     match t {
-        Trouble::Offline => "Can't reach oyenza.trade. The prices come once you're back online.",
-        Trouble::Paused => "oyenza.trade has its live prices paused for now. Trying again in a few minutes.",
-        Trouble::Server => "oyenza.trade didn't answer properly. Trying again soon.",
+        Trouble::Offline => "Can't reach koygi.trade. The prices come once you're back online.",
+        Trouble::Paused => "koygi.trade has its live prices paused for now. Trying again in a few minutes.",
+        Trouble::Server => "koygi.trade didn't answer properly. Trying again soon.",
     }
 }
 

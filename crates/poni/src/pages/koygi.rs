@@ -117,7 +117,7 @@ pub fn draw(ui: &mut Ui, st: &mut AppState, area: Rect) {
 fn draw_signed_out(ui: &mut Ui, st: &mut AppState, area: Rect) {
     let title = "Your money, on the island";
     let body = "Money in, bills due and a quick way to note a spend. Amounts stay hidden until you show them.";
-    sign_in_card(ui, st, area, title, body, "oyenza.sign-in");
+    sign_in_card(ui, st, area, title, body, "koygi.sign-in");
 }
 
 /// The Oyenza app's icon beside what signing in brings, and the button (the
@@ -141,7 +141,7 @@ pub(crate) fn sign_in_card(ui: &mut Ui, st: &mut AppState, area: Rect, title: &s
     ui.c.text(body, Rect::new(x, y, w, body_h + 1.0), &body_st);
     y += body_h + 14.0;
     let connecting = matches!(st.oyenza.link, OyenzaLink::Connecting { .. });
-    let label = if connecting { "Show the sign-in code" } else { "Sign in with Oyenza" };
+    let label = if connecting { "Show the sign-in code" } else { "Sign in with Koygi" };
     let bw = ui.pill_width(label, false, true).min(w);
     if ui.pill(wid(id), Rect::new(x, y, bw, PILL_SMALL), label, None, PillStyle::Primary(ACCENT)).clicked {
         st.cmd(if connecting { Command::SetPage(crate::pages::PageKind::Oyenza) } else { Command::Oyenza(OyenzaCmd::SignIn) });
@@ -151,12 +151,12 @@ pub(crate) fn sign_in_card(ui: &mut Ui, st: &mut AppState, area: Rect, title: &s
 // ---------------------------------------------------------------- signing in
 
 fn draw_code(ui: &mut Ui, st: &mut AppState, area: Rect, code: &str, url: &str, until: f64) {
-    ui.c.text("Sign in to Oyenza", Rect::new(area.x, area.y, area.w, 20.0), &TextStyle::headline());
+    ui.c.text("Sign in to Koygi", Rect::new(area.x, area.y, area.w, 20.0), &TextStyle::headline());
     ui.c.text(
         if cfg!(windows) {
-            "On your phone or this PC, open oyenza.app/connect and enter this code."
+            "On your phone or this PC, open koygi.app/connect and enter this code."
         } else {
-            "On your phone or this Mac, open oyenza.app/connect and enter this code."
+            "On your phone or this Mac, open koygi.app/connect and enter this code."
         },
         Rect::new(area.x, area.y + 22.0, area.w, 18.0),
         &TextStyle::footnote().color(palette::TEXT_DIM),
@@ -166,14 +166,14 @@ fn draw_code(ui: &mut Ui, st: &mut AppState, area: Rect, code: &str, url: &str, 
     ui.c.text(code, code_r, &TextStyle::display().tabular().center());
 
     let y = area.y + 128.0;
-    let open_w = ui.pill_width("Open oyenza.app", true, true);
+    let open_w = ui.pill_width("Open koygi.app", true, true);
     let open = Rect::new(area.x, y, open_w, PILL_SMALL);
-    if ui.pill(wid("oyenza.open-connect"), open, "Open oyenza.app", Some(Icon::Open), PillStyle::Primary(ACCENT)).clicked {
+    if ui.pill(wid("koygi.open-connect"), open, "Open koygi.app", Some(Icon::Open), PillStyle::Primary(ACCENT)).clicked {
         st.cmd(Command::OpenUrl(url.to_string()));
     }
     let cancel_w = ui.pill_width("Cancel", false, true);
     let cancel = Rect::new(open.right() + PILL_GAP, y, cancel_w, PILL_SMALL);
-    if ui.pill(wid("oyenza.cancel"), cancel, "Cancel", None, PillStyle::Utility).clicked {
+    if ui.pill(wid("koygi.cancel"), cancel, "Cancel", None, PillStyle::Utility).clicked {
         st.cmd(Command::Oyenza(OyenzaCmd::Cancel));
     }
     let left = format!("Code works for {}", oyenza::code_time_left(until - st.now));
@@ -191,7 +191,7 @@ fn draw_connected(ui: &mut Ui, st: &mut AppState, area: Rect) {
     if st.oyenza.flash.as_ref().is_some_and(|(_, until)| now >= *until) {
         st.oyenza.flash = None;
     }
-    let show = st.settings.oyenza_show_amounts || st.oyenza.reveal;
+    let show = st.settings.koygi_show_amounts || st.oyenza.reveal;
 
     // ---- The note row: typing, saving, or what was saved with Undo.
     let row = Rect::new(area.x, area.y, area.w, INPUT_H);
@@ -202,7 +202,7 @@ fn draw_connected(ui: &mut Ui, st: &mut AppState, area: Rect) {
         let text = format!("Saving “{}”…", st.oyenza.input.trim());
         ui.c.text(&text, Rect::new(row.x + TEXT_X, row.y, row.w - TEXT_X, row.h), &TextStyle::body().color(palette::TEXT_DIM));
     } else {
-        let resp = ui.text_input_row(wid("oyenza.note"), row, &mut st.oyenza.input, PLACEHOLDER, oyenza::NOTE_MAX_CHARS, ACCENT, Some(Icon::Plus));
+        let resp = ui.text_input_row(wid("koygi.note"), row, &mut st.oyenza.input, PLACEHOLDER, oyenza::NOTE_MAX_CHARS, ACCENT, Some(Icon::Plus));
         if resp.changed {
             st.oyenza.error = None;
         }
@@ -243,13 +243,13 @@ fn draw_connected(ui: &mut Ui, st: &mut AppState, area: Rect) {
         DayPick::Tomorrow | DayPick::Later => bills.len(),
     };
     let head = Rect::new(area.x, area.y + HEAD_Y, area.w, PILL_SMALL);
-    let pill_x = if st.settings.oyenza_show_amounts {
+    let pill_x = if st.settings.koygi_show_amounts {
         head.right()
     } else {
         let text = if st.oyenza.reveal { "Hide amounts" } else { "Show amounts" };
         let w = ui.pill_width(text, true, true);
         let r = Rect::new(head.right() - w, head.y, w, PILL_SMALL);
-        if ui.pill(wid("oyenza.reveal"), r, text, Some(Icon::Eye), PillStyle::Utility).clicked {
+        if ui.pill(wid("koygi.reveal"), r, text, Some(Icon::Eye), PillStyle::Utility).clicked {
             st.oyenza.reveal = !st.oyenza.reveal;
         }
         r.x
@@ -269,7 +269,7 @@ fn draw_connected(ui: &mut Ui, st: &mut AppState, area: Rect) {
     let list = Rect::new(area.x, area.y + LIST_Y, area.w, LIST_BOTTOM - LIST_Y);
     if rows.is_empty() {
         let text = match (&activity, pick) {
-            (None, DayPick::Today | DayPick::Past(_)) => "Checking Oyenza…",
+            (None, DayPick::Today | DayPick::Past(_)) => "Checking Koygi…",
             _ => oyenza::empty_day_text(pick),
         };
         empty_row(ui, Rect::new(list.x, list.y, list.w, ROW_H), text);
@@ -287,9 +287,9 @@ fn draw_connected(ui: &mut Ui, st: &mut AppState, area: Rect) {
             let live = st.unix - t <= LIVE_S;
             (live, if live { format!("Live · updated {clock}") } else { format!("Updated {clock}") })
         }
-        None => (false, "Checking Oyenza…".into()),
+        None => (false, "Checking Koygi…".into()),
     };
-    let open_w = ui.pill_width("Open oyenza.app", true, true);
+    let open_w = ui.pill_width("Open koygi.app", true, true);
     let open = Rect::new(footer.right() - open_w, footer.y, open_w, PILL_SMALL);
     let mut text_x = footer.x;
     if live {
@@ -297,7 +297,7 @@ fn draw_connected(ui: &mut Ui, st: &mut AppState, area: Rect) {
         text_x += 14.0;
     }
     ui.c.text(&updated, Rect::new(text_x, footer.y, (open.x - text_x - 12.0).max(0.0), footer.h), &TextStyle::footnote().color(palette::TEXT_FAINT));
-    if ui.pill(wid("oyenza.open"), open, "Open oyenza.app", Some(Icon::Open), PillStyle::Utility).clicked {
+    if ui.pill(wid("koygi.open"), open, "Open koygi.app", Some(Icon::Open), PillStyle::Utility).clicked {
         st.cmd(Command::OpenUrl(oyenza::WEB.to_string()));
     }
 }
@@ -344,7 +344,7 @@ fn draw_strip(ui: &mut Ui, st: &AppState, r: Rect, today: &str) -> Option<DayPic
             ui.c.fill_rrect(cell, inner_h / 2.0, Color::white(0.16));
             palette::TEXT
         } else {
-            let resp = ui.button(wid_n("oyenza.day", i as u64), Rect::new(cell.x, r.y, cell.w, r.h));
+            let resp = ui.button(wid_n("koygi.day", i as u64), Rect::new(cell.x, r.y, cell.w, r.h));
             if resp.clicked {
                 picked = Some(*pick);
             }
@@ -404,7 +404,7 @@ fn draw_list(ui: &mut Ui, st: &mut AppState, list: Rect, rows: &[Line], today: &
                 let time = oyenza::local_clock(&t.at, offset).map(|l| fmt_clock(&l, st.settings.use_24h)).unwrap_or_default();
                 txn_row(ui, r, t, &time, show);
             }
-            Line::More(n) => empty_row(ui, r, &format!("and {n} more in oyenza.app")),
+            Line::More(n) => empty_row(ui, r, &format!("and {n} more in koygi.app")),
         }
     }
     ui.c.set_text_snap(snap_was);
@@ -433,7 +433,7 @@ fn submit(ui: &mut Ui, st: &mut AppState) {
 
 /// "Undo" lapses, but never under a press that is about to click it.
 fn undo_held(ui: &Ui) -> bool {
-    let id = wid("oyenza.undo");
+    let id = wid("koygi.undo");
     ui.input.pressed_id == Some(id) || ui.input.clicked.is_some_and(|(c, _)| c == id)
 }
 
@@ -447,7 +447,7 @@ fn draw_saved(ui: &mut Ui, st: &mut AppState, row: Rect, saved: &[oyenza::Saved]
     ui.c.text("Saved", Rect::new(x, row.y, hw + 2.0, row.h), &head_st);
     let line_x = x + hw + 8.0;
     ui.c.text(&oyenza::saved_line(saved), Rect::new(line_x, row.y, (undo.x - 12.0 - line_x).max(0.0), row.h), &TextStyle::body().color(palette::TEXT_DIM));
-    if ui.pill(wid("oyenza.undo"), undo, "Undo", Some(Icon::Undo), PillStyle::UtilityAccent(ACCENT)).clicked {
+    if ui.pill(wid("koygi.undo"), undo, "Undo", Some(Icon::Undo), PillStyle::UtilityAccent(ACCENT)).clicked {
         for s in saved {
             st.cmd(Command::Oyenza(OyenzaCmd::Undo(s.id.clone())));
         }

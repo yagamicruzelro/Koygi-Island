@@ -1,4 +1,4 @@
-; Oyenza Studio installer (Inno Setup 6.5.2+, for the PNG wizard images).
+; Koygi Island installer (Inno Setup 6.5.2+, for the PNG wizard images).
 ;
 ; Releases ship installer/poni.nsi (NSIS), which 0.1.x installs came from; CI builds this one too as a check.
 ;
@@ -67,11 +67,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "autostart"; Description: "Start with Windows"; GroupDescription: "Startup:"
 
 [Files]
-Source: "{#ExeSource}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#ExeSource}"; DestDir: "{app}"; DestName: "{#AppExe}"; Flags: ignoreversion
 Source: "..\THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [InstallDelete]
-; The shortcut the 0.1.x versions from 0.1.2 on made, before the app was renamed Oyenza Studio.
+; The shortcut the 0.1.x versions from 0.1.2 on made, before the app was renamed Koygi Island.
 Type: files; Name: "{autoprograms}\Oyen Poni.lnk"
 
 [Icons]

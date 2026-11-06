@@ -239,7 +239,7 @@ pub fn smoke_device_change() -> Result<(), i32> {
     use objc2::runtime::AnyObject;
     use objc2_foundation::{NSDictionary, NSNumber, NSString};
     let keys = [NSString::from_str("uid"), NSString::from_str("name"), NSString::from_str("private")];
-    let (uid, name, private) = (NSString::from_str("com.oyenza.poni.smoke"), NSString::from_str("Oyenza Studio smoke test"), NSNumber::numberWithInt(1));
+    let (uid, name, private) = (NSString::from_str("com.koygi.poni.smoke"), NSString::from_str("Koygi Island smoke test"), NSNumber::numberWithInt(1));
     let values: [&AnyObject; 3] = [uid.as_ref(), name.as_ref(), private.as_ref()];
     let desc = NSDictionary::from_slices(&[&*keys[0], &*keys[1], &*keys[2]], &values);
     let mut id = 0u32;

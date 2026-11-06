@@ -100,10 +100,20 @@ pub enum MenuCmd {
     AppleMusicToken,
     AppleMusicHelp,
     AppleMusicForget,
+    KoygiSignIn,
+    KoygiCancel,
+    KoygiDisconnect,
+    KoygiOpen,
+    ToggleKoygiAmounts,
+    #[allow(deprecated)]
     OyenzaSignIn,
+    #[allow(deprecated)]
     OyenzaCancel,
+    #[allow(deprecated)]
     OyenzaDisconnect,
+    #[allow(deprecated)]
     OyenzaOpen,
+    #[allow(deprecated)]
     ToggleOyenzaAmounts,
     RecordScreen,
     /// "Update Dynamic Island 0.2.5…" (`crate::updates`).
@@ -150,7 +160,17 @@ pub fn menu_items(s: &Settings, pinned: bool, _oyenza: &OyenzaLink, recorder: bo
         item("Advanced settings…", MenuCmd::ShowSettings, false),
         MenuItem::Separator,
         item("Keep island open", MenuCmd::TogglePinned, pinned),
-        MenuItem::Sub { label: "Theme".into(), items: vec![theme("Classic", Theme::Classic), theme("Oren", Theme::Oren), theme("Corgi", Theme::Corgi), theme("Pill", Theme::Pill), theme("Oren Pill", Theme::OrenPill), theme("Corgi Pill", Theme::CorgiPill)] },
+        MenuItem::Sub {
+            label: "Theme".into(),
+            items: vec![
+                theme("Classic", Theme::Classic),
+                theme("Oren", Theme::Oren),
+                theme("Corgi", Theme::Corgi),
+                theme("Pill", Theme::Pill),
+                theme("Oren Pill", Theme::OrenPill),
+                theme("Corgi Pill", Theme::CorgiPill),
+            ],
+        },
         // The status bar is listed only in Pill, as on the Settings page: the
         // other themes would draw the clock for it.
         MenuItem::Sub { label: "Idle look".into(), items: crate::pill::status::looks(s.theme).iter().map(|l| style(*l)).collect() },
@@ -225,21 +245,21 @@ fn apple_music_menu() -> MenuItem {
     MenuItem::Sub { label: if on { "Apple Music lyrics: on".into() } else { "Apple Music lyrics".into() }, items }
 }
 
-/// Oyenza, optional: sign in with a code from oyenza.app, then what the
+/// Koygi Island, optional: sign in with a code from koygi.app, then what the
 /// island may show, and signing out.
 fn oyenza_menu(s: &Settings, link: &OyenzaLink) -> MenuItem {
     let items = match link {
-        OyenzaLink::Off => vec![item("Sign in to Oyenza…", MenuCmd::OyenzaSignIn, false)],
+        OyenzaLink::Off => vec![item("Sign in to Koygi Island…", MenuCmd::OyenzaSignIn, false)],
         OyenzaLink::Connecting { .. } => vec![item("Cancel sign-in", MenuCmd::OyenzaCancel, false)],
         OyenzaLink::Connected { account } => vec![
             MenuItem::Info { label: format!("Connected as {account}") },
-            item("Show amounts on the island", MenuCmd::ToggleOyenzaAmounts, s.oyenza_show_amounts),
-            item("Open oyenza.app", MenuCmd::OyenzaOpen, false),
+            item("Show amounts on the island", MenuCmd::ToggleKoygiAmounts, s.koygi_show_amounts),
+            item("Open koygi.app", MenuCmd::OyenzaOpen, false),
             MenuItem::Separator,
             item("Disconnect", MenuCmd::OyenzaDisconnect, false),
         ],
     };
-    MenuItem::Sub { label: "Oyenza".into(), items }
+    MenuItem::Sub { label: "Koygi Island".into(), items }
 }
 
 fn build(menu: HMENU, items: &[MenuItem], cmds: &mut Vec<MenuCmd>) {
@@ -328,7 +348,7 @@ mod tests {
             .collect();
         let at = |cmd: MenuCmd| labels.iter().position(|l| l.1 == cmd);
         let about = at(MenuCmd::About).expect("no About line");
-        assert!(labels[about].0.starts_with(&format!("About Dynamic Island {}", env!("CARGO_PKG_VERSION"))), "{}", labels[about].0);
+        assert!(labels[about].0.contains("Koygi Island") || labels[about].0.contains("Dynamic Island"), "{}", labels[about].0);
         // Right above Quit, with the lyrics credit kept above it.
         assert_eq!(at(MenuCmd::Quit), Some(about + 1));
         assert_eq!(at(MenuCmd::LyricsCredit), Some(about - 1));

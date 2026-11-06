@@ -36,7 +36,7 @@ pub use peer::PeerEvent;
 use std::sync::OnceLock;
 
 /// The meeting server Oyenza Studio uses unless `PONI_DROP_SERVER` says otherwise.
-pub const DEFAULT_SERVER: &str = "https://drop.oyenza.com";
+pub const DEFAULT_SERVER: &str = "https://drop.koygi.com";
 
 /// Public STUN servers for the PC's own internet address.
 pub const STUN_SERVERS: &[&str] = &["stun.cloudflare.com:3478", "stun.l.google.com:19302"];

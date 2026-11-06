@@ -602,8 +602,8 @@ impl Problem {
             Problem::TooBig => "Jawabannya kepanjangan",
             Problem::Busy(_) => "Oyen lagi rame",
             Problem::AiFailed => "Oyen gagal mikir",
-            Problem::Offline => "Nggak nyambung ke Oyenza",
-            Problem::SignedOut => "Kamu udah keluar dari Oyenza",
+            Problem::Offline => "Nggak nyambung ke Koygi",
+            Problem::SignedOut => "Kamu udah keluar dari Koygi",
             Problem::StillThinking => "Oyen masih mikirin jawabanmu",
             Problem::BadLevel => "Level itu nggak ada",
             Problem::BadAudio => "Rekamanmu nggak kebaca",
@@ -621,19 +621,19 @@ impl Problem {
             Problem::DailyCap => "Sesi latihan hari ini udah kepakai semua. Lanjut besok ya.".into(),
             Problem::TooFast => "Kebanyakan permintaan dalam sejam ini. Tunggu sebentar, terus coba lagi.".into(),
             Problem::LevelLocked => "Capai target band di level sebelumnya dulu.".into(),
-            Problem::ProRequired => "Akun Oyenza-mu belum Studio Pro, jadi sesi baru belum bisa dimulai.".into(),
+            Problem::ProRequired => "Akun Koygi-mu belum Studio Pro, jadi sesi baru belum bisa dimulai.".into(),
             Problem::NoSession => "Sesi berhenti kalau 30 menit nggak ada jawaban. Mulai lagi yuk.".into(),
             Problem::TooBig => "Rekaman maksimal sekitar 4 menit. Coba jawab lebih singkat.".into(),
             Problem::Busy(Some(s)) if s > 1 => format!("Lagi banyak yang latihan. Coba lagi {s} detik lagi."),
             Problem::Busy(_) => "Lagi banyak yang latihan. Coba lagi sebentar lagi.".into(),
             Problem::AiFailed => "Jawabanmu masih aman. Kirim lagi aja.".into(),
             Problem::Offline => "Cek internetnya, terus coba lagi.".into(),
-            Problem::SignedOut => "Masuk lagi ke Oyenza buat lanjut latihan.".into(),
+            Problem::SignedOut => "Masuk lagi ke Koygi buat lanjut latihan.".into(),
             Problem::StillThinking => "Jawaban tadi masih diproses. Tunggu sebentar, terus coba lagi.".into(),
             Problem::BadLevel => "Pilih level lain di daftar, terus mulai lagi.".into(),
             Problem::BadAudio => "Coba rekam ulang jawabanmu ya.".into(),
             Problem::Server => "Coba lagi sebentar lagi.".into(),
-            Problem::Mic(MicIssue::Denied) if mac => "Nyalain Oyenza Studio di Privasi & Keamanan › Mikrofon, terus coba lagi.".into(),
+            Problem::Mic(MicIssue::Denied) if mac => "Nyalain Koygi Island di Privasi & Keamanan › Mikrofon, terus coba lagi.".into(),
             Problem::Mic(MicIssue::Denied) => "Nyalain akses mikrofon buat aplikasi desktop di Pengaturan Windows, terus coba lagi.".into(),
             Problem::Mic(MicIssue::NoDevice) => "Colok mic atau headset dulu, terus coba lagi.".into(),
             Problem::Mic(MicIssue::Failed) => "Coba cabut-colok mic-nya, terus coba lagi.".into(),
@@ -1864,11 +1864,11 @@ mod tests {
 
     #[test]
     fn urls_and_bodies() {
-        assert_eq!(me_url(BASE, "+07:00"), "https://api.oyenza.app/island/ielts/me?tz=%2B07%3A00");
+        assert_eq!(me_url(BASE, "+07:00"), "https://api.koygi.app/island/ielts/me?tz=%2B07%3A00");
         assert_eq!(session_url("http://127.0.0.1:9"), "http://127.0.0.1:9/island/ielts/session");
-        assert_eq!(answer_url(BASE, "a b"), "https://api.oyenza.app/island/ielts/session/a%20b/answer");
-        assert_eq!(skip_url(BASE, "x"), "https://api.oyenza.app/island/ielts/session/x/skip");
-        assert_eq!(end_url(BASE, "x"), "https://api.oyenza.app/island/ielts/session/x");
+        assert_eq!(answer_url(BASE, "a b"), "https://api.koygi.app/island/ielts/session/a%20b/answer");
+        assert_eq!(skip_url(BASE, "x"), "https://api.koygi.app/island/ielts/session/x/skip");
+        assert_eq!(end_url(BASE, "x"), "https://api.koygi.app/island/ielts/session/x");
         let v: serde_json::Value = serde_json::from_str(&session_body(9, Spice::Ngegas, "+07:00")).unwrap();
         assert_eq!(v, serde_json::json!({ "level": 5, "spice": 2, "tz": "+07:00" }));
         let wav = tone_wav(0.1, 440.0, RATE);

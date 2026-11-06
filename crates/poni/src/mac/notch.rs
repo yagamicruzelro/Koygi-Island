@@ -183,6 +183,8 @@ fn ear(m: &Mode, st: &AppState) -> f32 {
         // Meeting notes: Oyen in the left ear; the dot and "12:34", or
         // "Writing…", in the right.
         Mode::Activity(Activity::Notes) => 80.0,
+        Mode::Activity(Activity::MediaDiscord) => 80.0,
+        Mode::Activity(Activity::Discord) => 66.0,
         _ => 56.0,
     }
 }
@@ -371,6 +373,71 @@ pub fn draw_ears(ui: &mut Ui, st: &mut AppState, m: &Mode, body: Rect, n: Notch)
         // sung line hangs below the notch instead (`fit`).
         Mode::Activity(Activity::Media) => {
             activities::draw_music(ui, st, body, false);
+            true
+        }
+        Mode::Activity(Activity::MediaDiscord) => {
+            // Left ear: Spotify artwork (20x20) and animated equalizer (20x16) with accent color and ui.request_live()
+            let cy = body.center().y;
+            let art_r = Rect::new(left.x + 8.0, cy - 10.0, 20.0, 20.0);
+            let playing = st.media.as_ref().is_some_and(|m| m.is_playing());
+            activities::art_or_icon(ui, st, art_r, playing);
+
+            let eq_r = Rect::new(left.x + 36.0, cy - 8.0, 20.0, 16.0);
+            let accent = st.media_accent();
+            activities::equalizer(ui, eq_r, accent, playing, st.now);
+            if playing {
+                ui.request_live();
+            }
+
+            // Center 185 DIPs: untouched / camera notch.
+
+            // Right ear: microphone icon (Icon::Mic, 16x16) with speaking pulse ring (c.stroke_circle when is_speaking), solid green when connected, and red when muted. ui.request_live() when pulse active.
+            let r_center = right.center();
+            let peak = crate::services::discord::current_mic_peak();
+            let norm_peak = ((peak - 0.035).max(0.0) / 0.25).min(1.0);
+            let is_speaking = norm_peak > 0.05 && !st.discord.is_muted;
+
+            let mic_color = if st.discord.is_muted {
+                Color::rgba(0.95, 0.25, 0.25, 1.0)
+            } else if is_speaking {
+                Color::rgba(0.2, 0.95, 0.45, 1.0)
+            } else {
+                Color::rgba(0.14, 0.75, 0.38, 1.0)
+            };
+            if is_speaking {
+                let pulse = (peak * 3.0).min(1.0);
+                ui.c.stroke_circle(r_center, 14.0, mic_color.with_alpha(0.3 + 0.4 * pulse), 1.5);
+                ui.request_live();
+            }
+            let mic_r = Rect::from_center(r_center, 16.0, 16.0);
+            ui.c.icon(Icon::Mic, mic_r, mic_color);
+            true
+        }
+        Mode::Activity(Activity::Discord) => {
+            // Standalone Discord voice activity
+            // Left ear: Headphones icon for voice status
+            let peak = crate::services::discord::current_mic_peak();
+            let norm_peak = ((peak - 0.035).max(0.0) / 0.25).min(1.0);
+            let is_speaking = norm_peak > 0.05 && !st.discord.is_muted;
+
+            let mic_color = if st.discord.is_muted {
+                Color::rgba(0.95, 0.25, 0.25, 1.0)
+            } else if is_speaking {
+                Color::rgba(0.2, 0.95, 0.45, 1.0)
+            } else {
+                Color::rgba(0.14, 0.75, 0.38, 1.0)
+            };
+            ui.c.icon(Icon::Headphones, Rect::from_center(left.center(), 16.0, 16.0), mic_color);
+
+            // Right ear: microphone icon with speaking pulse ring, solid green when connected, and red when muted.
+            let r_center = right.center();
+            if is_speaking {
+                let pulse = (peak * 3.0).min(1.0);
+                ui.c.stroke_circle(r_center, 14.0, mic_color.with_alpha(0.3 + 0.4 * pulse), 1.5);
+                ui.request_live();
+            }
+            let mic_r = Rect::from_center(r_center, 16.0, 16.0);
+            ui.c.icon(Icon::Mic, mic_r, mic_color);
             true
         }
         _ => false,

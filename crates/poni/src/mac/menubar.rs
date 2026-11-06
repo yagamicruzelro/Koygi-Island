@@ -151,17 +151,17 @@ pub fn menu_items(s: &Settings, pinned: bool, login: Login, recorder: bool, oyen
 /// island may show, and signing out (as in the Windows tray).
 fn oyenza_menu(s: &Settings, link: &OyenzaLink) -> MenuItem {
     let items = match link {
-        OyenzaLink::Off => vec![item("Sign in to Oyenza…", MenuCmd::OyenzaSignIn, false)],
+        OyenzaLink::Off => vec![item("Sign in to Koygi Island…", MenuCmd::OyenzaSignIn, false)],
         OyenzaLink::Connecting { .. } => vec![item("Cancel sign-in", MenuCmd::OyenzaCancel, false)],
         OyenzaLink::Connected { account } => vec![
             MenuItem::Info { label: format!("Connected as {account}") },
-            item("Show amounts on the island", MenuCmd::ToggleOyenzaAmounts, s.oyenza_show_amounts),
-            item("Open oyenza.app", MenuCmd::OyenzaOpen, false),
+            item("Show amounts on the island", MenuCmd::ToggleOyenzaAmounts, s.koygi_show_amounts),
+            item("Open koygi.app", MenuCmd::OyenzaOpen, false),
             MenuItem::Separator,
             item("Disconnect", MenuCmd::OyenzaDisconnect, false),
         ],
     };
-    MenuItem::Sub { label: "Oyenza".into(), items }
+    MenuItem::Sub { label: "Koygi Island".into(), items }
 }
 
 /// Opt-in lyrics from Apple Music with the person's own token.

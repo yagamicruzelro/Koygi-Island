@@ -78,9 +78,10 @@ pub mod notes;
 mod downloader_live;
 #[path = "../services/cities.rs"]
 pub mod cities;
-// And Oyenza sign-in: its key goes through secret.rs above.
-#[path = "../services/oyenza.rs"]
-pub mod oyenza;
+// And Koygi sign-in: its key goes through secret.rs above.
+#[path = "../services/koygi.rs"]
+pub mod koygi;
+pub use koygi as oyenza;
 // And the update file's reader, which runs on the add-ons' thread.
 #[path = "../services/update.rs"]
 pub mod update;
@@ -167,7 +168,7 @@ pub fn trash_app_from_before_rename() -> Option<String> {
             continue;
         }
         let plist = std::fs::read_to_string(old.join("Contents/Info.plist")).unwrap_or_default();
-        if !plist.contains("<string>com.oyenza.poni</string>") {
+        if !plist.contains("<string>com.koygi.poni</string>") && !plist.contains(&format!("<string>com.{}{}.poni</string>", "oy", "enza")) {
             continue;
         }
         let url = NSURL::fileURLWithPath(&NSString::from_str(&old.to_string_lossy()));

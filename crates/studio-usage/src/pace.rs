@@ -665,7 +665,7 @@ fn unix(t: SystemTime) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{openrouter, opencode, oyenza, zai, Os, Window, WindowKind};
+    use crate::{koygi, openrouter, opencode, zai, Os, Window, WindowKind};
     use std::time::Duration;
 
     const T: i64 = 1_000;
@@ -1006,7 +1006,7 @@ mod tests {
             Request::get("ftp://x.test/"),
             Request::get("https://"),
             // In the clear, only to this computer.
-            Request::get("http://inference.oyenza.com/v1/studio/summary"),
+            Request::get("http://inference.koygi.com/v1/studio/summary"),
             Request::get("http://127.0.0.1.example.com/"),
             Request::get("http://127.0.0.1@example.com/"),
             Request::get("http://localhost.example.com/"),
@@ -1014,8 +1014,8 @@ mod tests {
             // User info: these go to example.com.
             Request::get("http://localhost:1@example.com/"),
             Request::get("http://127.0.0.1:80@example.com/"),
-            Request::get("https://user@inference.oyenza.com/v1/studio/summary"),
-            Request::get("https://inference.oyenza.com\\@example.com/"),
+            Request::get("https://user@inference.koygi.com/v1/studio/summary"),
+            Request::get("https://inference.koygi.com\\@example.com/"),
             Request::get("https://x.test/a b"),
             Request::get("https://x.test/\r\nX: 1"),
             Request::get("https://x.test/").header("Authorization", "Bearer a\nb"),
@@ -1038,14 +1038,14 @@ mod tests {
         // The worker's clients follow no redirect: the 3xx comes back, and the
         // service reads it as a trouble, without a second request.
         let dirs = Dirs::sample(Os::Windows);
-        let p = oyenza::Oyenza;
+        let p = koygi::Koygi;
         let mut asked = Vec::new();
         let ran = run(&p, &dirs, &p.wants(&dirs), T, Reach::Online, |_| Got::Text("oyis_test-token".into()), |r| {
             asked.push(r.url.clone());
             Ok(Reply { status: 302, body: String::new(), retry_after_s: None })
         }, |c| panic!("ran {c:?}"));
         assert_eq!(ran.outcome, Some(Err(Trouble::Unreadable("HTTP 302".into()))));
-        assert_eq!(asked, ["https://inference.oyenza.com/v1/studio/summary"]);
+        assert_eq!(asked, ["https://inference.koygi.com/v1/studio/summary"]);
     }
 
     const QUOTA: &str = include_str!("fixtures/zai/quota.json");
@@ -1172,7 +1172,7 @@ mod tests {
         // also reads its own sign-in file, so it never is.
         assert!(typed_key_only(&openrouter::OpenRouter.wants(&dirs), false));
         assert!(!typed_key_only(&opencode::OpenCode.wants(&dirs), false));
-        assert!(typed_key_only(&oyenza::Oyenza.wants(&dirs), false));
+        assert!(typed_key_only(&koygi::Koygi.wants(&dirs), false));
     }
 
     #[test]
@@ -1199,7 +1199,7 @@ mod tests {
         assert!(env.windows(2).all(|w| w[0] < w[1]), "sorted, once each");
         for os in [Os::Windows, Os::Mac] {
             let names = secret_names(&Dirs::sample(os));
-            assert!(names.contains(&oyenza::SECRET) && names.contains(&"openrouter"), "{names:?}");
+            assert!(names.contains(&koygi::SECRET) && names.contains(&"openrouter"), "{names:?}");
             for p in all() {
                 if let Some(k) = p.takes_key() {
                     assert!(names.contains(&k.secret), "{:?}", p.id());

@@ -16,9 +16,9 @@ use poni_core::recorder;
 use std::ffi::c_void;
 
 /// The island's message port, which the recorder looks up by this name.
-const PORT: &str = "com.oyenza.poni.recorder";
+const PORT: &str = "com.koygi.poni.recorder";
 /// The recorder's bundle identifier (its `branding/apply.py`).
-const RECORDER_ID: &str = "com.oyenza.studio.recorder";
+const RECORDER_ID: &str = "com.koygi.island.recorder";
 
 /// Whether some app opens `oyenza-recorder:` links, i.e. the recorder is
 /// installed. Read when the menu bar's menu is built.

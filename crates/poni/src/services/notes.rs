@@ -46,7 +46,7 @@ use windows::Win32::Media::Audio::{eCapture, eConsole, eRender, EDataFlow, IMMDe
 #[cfg(windows)]
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED};
 
-const USER_AGENT: &str = concat!("OyenzaStudio/", env!("CARGO_PKG_VERSION"), " (+https://github.com/lucacadalora/oyenza-studio)");
+const USER_AGENT: &str = concat!("koygi/", env!("CARGO_PKG_VERSION"), " (+https://github.com/koygi/koygi)");
 /// How long `start` waits for the devices to open.
 const OPEN_TIMEOUT: Duration = Duration::from_secs(5);
 /// How often the recording checks whether Windows' default devices changed.

@@ -56,9 +56,9 @@ pub enum LyricsResult {
     Error(String),
 }
 
-/// What the Oyenza worker reports (`services::oyenza`, shared with Windows).
+/// What the Koygi worker reports (`services::koygi`, shared with Windows).
 #[derive(Clone, Debug)]
-pub enum OyenzaEvent {
+pub enum KoygiEvent {
     /// The sign-in saved on this Mac was found at start (no notice).
     Restored { account: String },
     /// A sign-in code to show, the oyenza.app address that takes it, and how long it lasts.
@@ -69,14 +69,14 @@ pub enum OyenzaEvent {
     ConnectCancelled,
     /// Money that just arrived or went out by itself (oldest first).
     Money { arrived: Vec<Arrival> },
-    /// The last 7 days of transactions, for the Oyenza page (while it's open).
+    /// The last 7 days of transactions, for the Koygi page (while it's open).
     Activity(Activity),
     /// Asked again while the page is open: nothing changed.
     ActivityChecked,
     /// Bills due in the next 30 days, and the server's today (YYYY-MM-DD).
     Bills { today: String, bills: Vec<Bill> },
     /// The steps the phone sent, for the Health page; None: none to show (off in
-    /// Oyenza on the phone, or a server from before steps).
+    /// Koygi on the phone, or a server from before steps).
     Health(Option<HealthSnapshot>),
     /// The day for the Today page, from the apps switched on in oyenza.app (asked
     /// while the page is on screen).
@@ -96,6 +96,7 @@ pub enum OyenzaEvent {
     /// Signed out: from the menu or Settings, or by the server (disconnected in oyenza.app).
     Disconnected { by_server: bool },
 }
+pub type OyenzaEvent = KoygiEvent;
 
 #[allow(dead_code)]
 pub enum AppEvent {
@@ -107,6 +108,7 @@ pub enum AppEvent {
     MediaArt { track_key: String, art: Option<Image> },
     Lyrics { track_key: String, result: LyricsResult },
     AppleMusic(AppleMusicStatus),
+    Koygi(KoygiEvent),
     Oyenza(OyenzaEvent),
     /// Master volume changed (0..=1). `switched`: the output device changed
     /// (headphones connected, say), not its volume.

@@ -86,7 +86,7 @@ const WTS_SESSION_LOCK_: usize = 7;
 const WTS_SESSION_UNLOCK_: usize = 8;
 
 /// Steps for copying the Apple Music token (README).
-const APPLE_MUSIC_HELP_URL: &str = "https://github.com/lucacadalora/oyenza-studio#apple-music-lyrics";
+const APPLE_MUSIC_HELP_URL: &str = "https://github.com/koygi/koygi#apple-music-lyrics";
 /// Phone drop closes itself after this long without a request from a phone.
 const PHONE_IDLE_S: f64 = 600.0;
 
@@ -107,6 +107,20 @@ pub enum Deferred {
 
 pub fn main_entry() -> i32 {
     let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("Koygi Island {}", env!("CARGO_PKG_VERSION"));
+        println!("A living notch for Windows\n");
+        println!("Usage: koygi.exe [OPTIONS]\n");
+        println!("Options:");
+        println!("  -h, --help       Print help information");
+        println!("  -V, --version    Print version information");
+        println!("      --selftest   Run automated self-test");
+        return 0;
+    }
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        println!("Koygi Island {}", env!("CARGO_PKG_VERSION"));
+        return 0;
+    }
     // Show over games' one-time OK runs this exe elevated, just for this.
     if let Some(i) = args.iter().position(|a| a == services::frames::ALLOW_ARG) {
         return services::frames::allow_main(args.get(i + 1).map_or("", String::as_str));
@@ -2055,7 +2069,7 @@ impl App {
             }
             OyenzaEvent::Connected { account } => {
                 self.end_sign_in();
-                self.st.notify(Icon::Check, palette::GREEN, "Connected to Oyenza", format!("as {account}"), 6.0, Some(NoticeAction::OpenPage(PageKind::Oyenza)));
+                self.st.notify(Icon::Check, palette::GREEN, "Connected to Koygi", format!("as {account}"), 6.0, Some(NoticeAction::OpenPage(PageKind::Oyenza)));
                 self.st.oyenza.link = OyenzaLink::Connected { account };
                 self.ask_pro();
                 // Signed in from the Today page: back to it, where the day comes in.
@@ -2142,7 +2156,7 @@ impl App {
             }
             OyenzaEvent::Undone => self.st.oyenza.flash = Some(("Taken back".into(), now + 3.0)),
             OyenzaEvent::UndoFailed(code) => {
-                let line = if code == "too_late" { "Too late to undo here. Change it in oyenza.app" } else { "Couldn't undo. Change it in oyenza.app" };
+                let line = if code == "too_late" { "Too late to undo here. Change it in koygi.app" } else { "Couldn't undo. Change it in koygi.app" };
                 self.st.oyenza.flash = Some((line.into(), now + 5.0));
             }
             OyenzaEvent::Disconnected { by_server } => {
@@ -2152,7 +2166,7 @@ impl App {
                 // Signed out: an IELTS session ends, and the ladder was the account's.
                 self.ielts_off();
                 let (title, subtitle) =
-                    if by_server { ("Oyenza disconnected", "Sign in again in Settings") } else { ("Disconnected from Oyenza", "Sign in again any time in Settings") };
+                    if by_server { ("Koygi disconnected", "Sign in again in Settings") } else { ("Disconnected from Koygi", "Sign in again any time in Settings") };
                 self.st.notify(Icon::Unlink, palette::TEXT_DIM, title, subtitle, 6.0, None);
             }
         }
@@ -2205,7 +2219,7 @@ impl App {
     /// is back if it isn't old by then.
     fn oyenza_notice(&mut self, icon: Icon, color: Color, title: String, shown: String, hidden: Option<String>) {
         let now = self.st.now;
-        let hide = hidden.is_some() && !self.st.settings.oyenza_show_amounts;
+        let hide = hidden.is_some() && !self.st.settings.koygi_show_amounts;
         let notice = Notice {
             icon,
             color,
@@ -2245,12 +2259,12 @@ impl App {
     /// off), from the morning on; the rest come with the next look.
     fn remind_bills(&mut self, today: &str) {
         let st = &mut self.st;
-        oyenza::prune_noticed(&mut st.store.oyenza_noticed, today);
+        oyenza::prune_noticed(&mut st.store.koygi_noticed, today);
         if st.local.hour < oyenza::BILL_HOUR {
             return;
         }
-        let Some(b) = oyenza::bills_to_remind(&st.oyenza.bills, today, &st.store.oyenza_noticed).first().map(|b| (*b).clone()) else { return };
-        st.store.oyenza_noticed.push(oyenza::notice_key(&b));
+        let Some(b) = oyenza::bills_to_remind(&st.oyenza.bills, today, &st.store.koygi_noticed).first().map(|b| (*b).clone()) else { return };
+        st.store.koygi_noticed.push(oyenza::notice_key(&b));
         st.save();
         let (shown, hidden) = oyenza::bill_subtitles(&b);
         let icon = if b.is_card() { Icon::Card } else { Icon::Calendar };
@@ -2464,17 +2478,17 @@ impl App {
             AppleMusicToken => self.use_apple_music_token(),
             AppleMusicHelp => shell::open(APPLE_MUSIC_HELP_URL),
             AppleMusicForget => self.forget_apple_music_token(),
-            OyenzaSignIn => self.oyenza(OyenzaCmd::SignIn),
-            OyenzaCancel => self.oyenza(OyenzaCmd::Cancel),
-            OyenzaDisconnect => self.oyenza(OyenzaCmd::Disconnect),
-            OyenzaOpen => shell::open(oyenza::WEB),
+            OyenzaSignIn | KoygiSignIn => self.oyenza(OyenzaCmd::SignIn),
+            OyenzaCancel | KoygiCancel => self.oyenza(OyenzaCmd::Cancel),
+            OyenzaDisconnect | KoygiDisconnect => self.oyenza(OyenzaCmd::Disconnect),
+            OyenzaOpen | KoygiOpen => shell::open(oyenza::WEB),
             // "Update to xâ€¦": the island opens on the Update sheet.
             Update => {
                 self.st.open_update();
                 self.expand();
             }
             CheckForUpdates => self.check_for_updates(),
-            ToggleOyenzaAmounts => s.oyenza_show_amounts = !s.oyenza_show_amounts,
+            ToggleOyenzaAmounts | ToggleKoygiAmounts => s.koygi_show_amounts = !s.koygi_show_amounts,
             Quit => {
                 self.quit(0);
                 return;
@@ -2494,7 +2508,7 @@ impl App {
         // What the Settings window shows that a service reports.
         let shown = matches!(
             ev,
-            AppEvent::Autostart(_) | AppEvent::Update(_) | AppEvent::Oyenza(_) | AppEvent::Addon { .. } | AppEvent::Usage(_) | AppEvent::Located(_) | AppEvent::Notify(_)
+            AppEvent::Autostart(_) | AppEvent::Update(_) | AppEvent::Koygi(_) | AppEvent::Oyenza(_) | AppEvent::Addon { .. } | AppEvent::Usage(_) | AppEvent::Located(_) | AppEvent::Notify(_)
         );
         if let Some(w) = self.settings_win.as_mut().filter(|_| shown) {
             w.view.dirty = true;
@@ -2708,7 +2722,7 @@ impl App {
             AppEvent::AppleMusic(status) => self.on_apple_music(status),
             AppEvent::Phone(e) => self.on_phone(e),
             AppEvent::Paired(e) => self.on_paired(e),
-            AppEvent::Oyenza(ev) => self.on_oyenza(ev),
+            AppEvent::Koygi(ev) | AppEvent::Oyenza(ev) => self.on_oyenza(ev),
             AppEvent::GoogleTasks(items) => {
                 let now_unix = self.st.unix;
                 let norm = |s: &str| -> String {
@@ -3220,45 +3234,18 @@ fn trim_working_set(&self) {
         }
     }
 
-    /// Alt+Shift+S belongs to Poni only while the Script page can read.
-    fn set_script_hotkey(&mut self, on: bool) {
-        if on == self.script_hotkey {
-            return;
-        }
-        unsafe {
-            if on {
-                match RegisterHotKey(self.helper, HOTKEY_SCRIPT, MOD_ALT | MOD_SHIFT | MOD_NOREPEAT, u32::from(b'S')) {
-                    Ok(()) => self.script_hotkey = true,
-                    Err(e) => pwarn!("script: Alt+Shift+S is taken ({e})"),
-                }
-            } else {
+    /// Alt+Shift+S hotkey registration disabled in Koygi Island.
+    fn set_script_hotkey(&mut self, _on: bool) {
+        if self.script_hotkey {
+            unsafe {
                 let _ = UnregisterHotKey(self.helper, HOTKEY_SCRIPT);
-                self.script_hotkey = false;
             }
+            self.script_hotkey = false;
         }
     }
 
-    /// The Script page: a reading pauses while its page isn't on screen, the
-    /// island may close once nothing holds it, and the shortcut is Poni's
-    /// only while there's a script to read on the page. Whether Record shows
-    /// is asked as the page comes on screen.
-    fn script_tick(&mut self) {
-        let shown = self.expanded && self.st.page == PageKind::Script && !self.locked && !self.display_off && !self.fullscreen_hidden;
-        if shown && !self.script_shown && self.selftest.is_none() {
-            self.st.recorder = services::recorder::installed();
-        }
-        self.script_shown = shown;
-        if !shown && self.st.script.playing() {
-            self.st.script.pause(self.st.now);
-        }
-        let held = self.st.script_holds_island();
-        if self.script_held && !held {
-            self.maybe_schedule_collapse();
-        }
-        self.script_held = held;
-        let can_read = self.st.page == PageKind::Script && !self.st.store.script.is_empty() && (self.expanded || self.st.script.active);
-        self.set_script_hotkey(can_read && self.selftest.is_none());
-    }
+    /// Script reader engine tick is neutralized in Koygi Island.
+    fn script_tick(&mut self) {}
 
     /// Oyenza Studio Recorder's word on its recording, or "show yourself"
     /// (`recorder_message`). True when the island takes it: it shows the
@@ -3715,7 +3702,8 @@ fn trim_working_set(&self) {
             PageKind::Downloads => !self.st.downloader_on(),
             PageKind::Notifications => !self.st.notifications_on(),
             PageKind::Ielts => !self.st.ielts_on(),
-            PageKind::Notes => false,
+            PageKind::Notes => true,
+            PageKind::Script => true,
             _ => false,
         };
         if gone || self.st.page == PageKind::Addons {
@@ -5088,7 +5076,7 @@ fn trim_working_set(&self) {
                 }
                 Command::Phone(c) => self.phone_cmd(c),
                 Command::Pair(c) => self.pair_cmd(c),
-                Command::Oyenza(c) => self.oyenza(c),
+                Command::Koygi(c) | Command::Oyenza(c) => self.oyenza(c),
                 Command::Usage(c) => self.usage_cmd(c),
                 Command::Ielts(c) => self.ielts_cmd(c),
                 Command::Notes(c) => self.notes_cmd(c),

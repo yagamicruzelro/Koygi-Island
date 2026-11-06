@@ -11,5 +11,5 @@ pub fn about_label() -> String {
 
 /// The page the About line opens.
 pub fn notes_url() -> String {
-    "https://github.com/lucacadalora/oyenza-studio/releases".to_string()
+    "https://github.com/koygi/koygi/releases".to_string()
 }

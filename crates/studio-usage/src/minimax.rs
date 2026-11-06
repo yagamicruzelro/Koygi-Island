@@ -63,7 +63,7 @@ impl Provider for MiniMax {
         let ask = |host: &str, path: &str| {
             let req = Request::get(format!("{host}{path}")).bearer(&key).header("Accept", "application/json");
             // CodexBar's request: JSON, and a source tag naming the app asking.
-            Step::Fetch(req.header("Content-Type", "application/json").header("MM-API-Source", "Oyenza Studio"))
+            Step::Fetch(req.header("Content-Type", "application/json").header("MM-API-Source", "Koygi"))
         };
         match round(replies, cx.now) {
             Round::Ask(path) => ask(HOSTS[0], path),
@@ -347,7 +347,7 @@ mod tests {
         assert!(outcome.is_ok());
         assert_eq!(urls(&asked), [G1]);
         assert_eq!(header(&asked[0], "Authorization"), Some("Bearer sk-cp-test-token"));
-        assert_eq!(header(&asked[0], "MM-API-Source"), Some("Oyenza Studio"));
+        assert_eq!(header(&asked[0], "MM-API-Source"), Some("Koygi"));
         assert_eq!(asked[0].headers.iter().filter(|(_, v)| v.contains("sk-cp-test-token")).count(), 1);
         assert!(!format!("{outcome:?}").contains("sk-cp-test-token"));
     }

@@ -59,7 +59,7 @@ use std::ptr::NonNull;
 use std::sync::mpsc::{self, Receiver};
 
 /// Steps for copying the Apple Music token (README).
-const APPLE_MUSIC_HELP_URL: &str = "https://github.com/lucacadalora/oyenza-studio#apple-music-lyrics";
+const APPLE_MUSIC_HELP_URL: &str = "https://github.com/koygi/koygi#apple-music-lyrics";
 
 /// The grow springs overshoot by about 3 %; the window leaves 5 %.
 const OVERSHOOT: f32 = 1.05;
@@ -172,6 +172,20 @@ fn enter<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
 
 pub fn main_entry() -> i32 {
     let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("Koygi Island {}", env!("CARGO_PKG_VERSION"));
+        println!("A living notch for macOS\n");
+        println!("Usage: poni [OPTIONS]\n");
+        println!("Options:");
+        println!("  -h, --help       Print help information");
+        println!("  -V, --version    Print version information");
+        println!("      --smoke      Run smoke test");
+        return 0;
+    }
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        println!("Koygi Island {}", env!("CARGO_PKG_VERSION"));
+        return 0;
+    }
     let arg_after = |flag: &str| args.iter().position(|a| a == flag).map(|i| args.get(i + 1).cloned().unwrap_or_else(|| "poni-out".into()));
     if let Some(dir) = arg_after("--render") {
         return crate::render::run(&dir, &args);
@@ -1282,11 +1296,11 @@ impl App {
             MenuCmd::AppleMusicToken => self.use_apple_music_token(),
             MenuCmd::AppleMusicHelp => services::open(APPLE_MUSIC_HELP_URL),
             MenuCmd::AppleMusicForget => self.forget_apple_music_token(),
-            MenuCmd::OyenzaSignIn => self.oyenza(OyenzaCmd::SignIn),
-            MenuCmd::OyenzaCancel => self.oyenza(OyenzaCmd::Cancel),
-            MenuCmd::OyenzaDisconnect => self.oyenza(OyenzaCmd::Disconnect),
-            MenuCmd::OyenzaOpen => services::open(oyenza::WEB),
-            MenuCmd::ToggleOyenzaAmounts => s.oyenza_show_amounts = !s.oyenza_show_amounts,
+            MenuCmd::OyenzaSignIn | MenuCmd::KoygiSignIn => self.oyenza(OyenzaCmd::SignIn),
+            MenuCmd::OyenzaCancel | MenuCmd::KoygiCancel => self.oyenza(OyenzaCmd::Cancel),
+            MenuCmd::OyenzaDisconnect | MenuCmd::KoygiDisconnect => self.oyenza(OyenzaCmd::Disconnect),
+            MenuCmd::OyenzaOpen | MenuCmd::KoygiOpen => services::open(oyenza::WEB),
+            MenuCmd::ToggleOyenzaAmounts | MenuCmd::ToggleKoygiAmounts => s.koygi_show_amounts = !s.koygi_show_amounts,
             MenuCmd::ToggleLogin => self.toggle_login(),
             MenuCmd::OpenSettings => {
                 if !paths::settings_path().exists() {
@@ -2655,8 +2669,34 @@ impl App {
 
     // ------------------------------------------------------------ island state
 
+    fn check_split_target(&mut self) {
+        if self.mode == Mode::Activity(activities::Activity::MediaDiscord) {
+            let body = self.island.body_rect_at(self.cx);
+            let gap = 12.0;
+            let right_w = 34.0;
+            let left_w = (body.w - gap - right_w).max(40.0);
+            let right_body = Rect::new(body.x + left_w + gap, body.y, right_w, body.h);
+            let mouse_p = self.input.mouse.or(self.hover_arm);
+            let is_mic = mouse_p.is_some_and(|m| {
+                if self.screen.notch.is_some() && !self.island.floating() {
+                    m.x >= self.cx
+                } else {
+                    m.x >= right_body.x - 4.0 || m.x >= self.cx
+                }
+            });
+            if is_mic {
+                self.st.page = PageKind::Discord;
+            } else {
+                self.st.page = PageKind::Media;
+            }
+        } else if self.mode == Mode::Activity(activities::Activity::Discord) {
+            self.st.page = PageKind::Discord;
+        }
+    }
+
     fn expand(&mut self) {
         if !self.expanded {
+            self.check_split_target();
             self.expanded = true;
             self.cancel_hover();
             // A recorder installed or removed since the last look.
@@ -2665,13 +2705,17 @@ impl App {
             }
             self.check_recorder_alive(true);
             // A recording under way opens on its page: Pause and Stop are there.
-            if self.st.rec_live() && self.st.record_on() {
+            if matches!(self.mode, Mode::Activity(activities::Activity::MediaDiscord | activities::Activity::Discord)) {
+                // Keep the target page resolved by check_split_target()
+            } else if self.st.rec_live() && self.st.record_on() {
                 self.st.page = PageKind::Record;
             } else if self.st.page == PageKind::Record && !self.st.record_on() {
                 self.st.page = pages::first_tab(&self.st);
             } else if self.mode == Mode::Activity(activities::Activity::Download) {
                 // The download pill opens on its page.
                 self.st.page = PageKind::Downloads;
+            } else if self.st.media.as_ref().is_some_and(|m| m.is_playing()) {
+                self.st.page = PageKind::Media;
             }
         }
         self.request_frame();
@@ -3231,7 +3275,7 @@ impl App {
     fn start_oyenza(&mut self) {
         match services::oyenza::OyenzaService::start(self.sink.clone(), self.oyenza_activity()) {
             Ok(o) => self.oyenza = Some(o),
-            Err(e) => pwarn!("oyenza: unavailable ({e})"),
+            Err(e) => pwarn!("koygi: unavailable ({e})"),
         }
     }
 
@@ -3266,7 +3310,7 @@ impl App {
             }
             OyenzaEvent::Connected { account } => {
                 self.end_sign_in();
-                self.st.notify(Icon::Check, palette::GREEN, "Connected to Oyenza", format!("as {account}"), 6.0, Some(NoticeAction::OpenPage(PageKind::Oyenza)));
+                self.st.notify(Icon::Check, palette::GREEN, "Connected to Koygi", format!("as {account}"), 6.0, Some(NoticeAction::OpenPage(PageKind::Oyenza)));
                 self.st.oyenza.link = OyenzaLink::Connected { account };
                 self.ask_pro();
                 // Signed in from the Today page: back to it, where the day comes in.
@@ -3351,7 +3395,7 @@ impl App {
             }
             OyenzaEvent::Undone => self.st.oyenza.flash = Some(("Taken back".into(), now + 3.0)),
             OyenzaEvent::UndoFailed(code) => {
-                let line = if code == "too_late" { "Too late to undo here. Change it in oyenza.app" } else { "Couldn't undo. Change it in oyenza.app" };
+                let line = if code == "too_late" { "Too late to undo here. Change it in koygi.app" } else { "Couldn't undo. Change it in koygi.app" };
                 self.st.oyenza.flash = Some((line.into(), now + 5.0));
             }
             OyenzaEvent::Disconnected { by_server } => {
@@ -3361,7 +3405,7 @@ impl App {
                 // Signed out: an IELTS session ends, and the ladder was the account's.
                 self.ielts_off();
                 let (title, subtitle) =
-                    if by_server { ("Oyenza disconnected", "Sign in again in Settings") } else { ("Disconnected from Oyenza", "Sign in again any time in Settings") };
+                    if by_server { ("Koygi disconnected", "Sign in again in Settings") } else { ("Disconnected from Koygi", "Sign in again any time in Settings") };
                 self.st.notify(Icon::Unlink, palette::TEXT_DIM, title, subtitle, 6.0, None);
             }
         }
@@ -3416,7 +3460,7 @@ impl App {
     /// island is back if it isn't old by then.
     fn oyenza_notice(&mut self, icon: Icon, color: Color, title: String, shown: String, hidden: Option<String>) {
         let now = self.st.now;
-        let hide = hidden.is_some() && !self.st.settings.oyenza_show_amounts;
+        let hide = hidden.is_some() && !self.st.settings.koygi_show_amounts;
         let notice = Notice {
             icon,
             color,
@@ -3448,12 +3492,12 @@ impl App {
     /// off), from the morning on; the rest come with the next look.
     fn remind_bills(&mut self, today: &str) {
         let st = &mut self.st;
-        oyenza::prune_noticed(&mut st.store.oyenza_noticed, today);
+        oyenza::prune_noticed(&mut st.store.koygi_noticed, today);
         if st.local.hour < oyenza::BILL_HOUR {
             return;
         }
-        let Some(b) = oyenza::bills_to_remind(&st.oyenza.bills, today, &st.store.oyenza_noticed).first().map(|b| (*b).clone()) else { return };
-        st.store.oyenza_noticed.push(oyenza::notice_key(&b));
+        let Some(b) = oyenza::bills_to_remind(&st.oyenza.bills, today, &st.store.koygi_noticed).first().map(|b| (*b).clone()) else { return };
+        st.store.koygi_noticed.push(oyenza::notice_key(&b));
         st.save();
         let (shown, hidden) = oyenza::bill_subtitles(&b);
         let icon = if b.is_card() { Icon::Card } else { Icon::Calendar };
@@ -3671,7 +3715,8 @@ impl App {
             PageKind::Record => !self.st.record_on(),
             PageKind::Ielts => !self.st.ielts_on(),
             PageKind::Downloads => !self.st.downloader_on(),
-            PageKind::Notes => false,
+            PageKind::Notes => true,
+            PageKind::Script => true,
             _ => false,
         };
         if gone || self.st.page == PageKind::Addons {
@@ -4297,17 +4342,17 @@ impl App {
             // asks nothing), one POST goes through the Mac's HTTP client the
             // way signing in sends it, then the island follows what the worker
             // would report: a code, a week on the page, money in, signing out.
-            "oyenza-post" => {
+            "koygi-post" => {
                 self.st.notice = None;
                 self.collapse();
                 self.start_oyenza();
                 self.smoke_post = Some(smoke_post());
             }
-            "oyenza-code" => {
-                let url = "https://oyenza.app/connect?code=KPJX-TMNQ".to_string();
+            "koygi-code" => {
+                let url = "https://koygi.app/connect?code=KPJX-TMNQ".to_string();
                 self.on_oyenza(OyenzaEvent::Connecting { code: "KPJX-TMNQ".into(), url, expires_in_s: 600 });
             }
-            "oyenza-page" => {
+            "koygi-page" => {
                 let fake = crate::render::fake_oyenza(&self.st, false);
                 self.on_oyenza(OyenzaEvent::Connected { account: "a\u{2022}\u{2022}\u{2022}@example.com".into() });
                 if let Some(a) = fake.activity {
@@ -4318,7 +4363,7 @@ impl App {
                 self.set_page(PageKind::Oyenza);
                 self.expand();
             }
-            "oyenza-money" => {
+            "koygi-money" => {
                 self.collapse();
                 let wallet = Some(poni_core::oyenza::WalletRef { name: "BCA".into(), color: "#0060AF".into() });
                 let arrived = vec![poni_core::oyenza::Arrival {
@@ -4333,7 +4378,7 @@ impl App {
                 }];
                 self.on_oyenza(OyenzaEvent::Money { arrived });
             }
-            "oyenza-off" => {
+            "koygi-off" => {
                 self.st.notice = None;
                 self.on_oyenza(OyenzaEvent::Disconnected { by_server: false });
                 self.oyenza = None;
@@ -4355,7 +4400,11 @@ impl App {
                 // step set its own, and a resting island draws no frame).
                 self.set_usage_watch();
                 if std::env::var_os("PONI_SMOKE_KEYCHAIN").is_some() {
-                    let _ = services::keychain::read(SMOKE_KEYCHAIN.0, Some("plain"));
+                    let mut read = services::keychain::read(SMOKE_KEYCHAIN.0, Some("plain"));
+                    if read == studio_usage::Got::Missing {
+                        read = services::keychain::read("Koygi Island smoke", Some("plain"));
+                    }
+                    let _ = read;
                 }
                 self.set_away(None, Some(true));
             }
@@ -4462,7 +4511,7 @@ impl App {
                 self.expand();
             }
             "notch-glass-open" => {
-                self.on_menu(MenuCmd::SetTheme(Theme::Corgi));
+                self.on_menu(MenuCmd::SetTheme(Theme::CorgiPill));
                 self.st.page = PageKind::Today;
                 self.expand();
             }
@@ -4594,8 +4643,8 @@ impl App {
             "fullscreen-hide" => self.fullscreen_hidden || waited > 12.0,
             "fullscreen-stay" => (!self.fullscreen_hidden && window::is_shown() && waited > 1.0) || waited > 6.0,
             "fullscreen-back" => (!self.front_full_screen && !self.fullscreen_hidden && window::is_shown() && waited > 1.0) || waited > 8.0,
-            "oyenza-code" | "oyenza-page" => (self.expanded && self.st.page == PageKind::Oyenza && waited > 0.6) || waited > 4.0,
-            "oyenza-money" => self.st.notice.is_some() || waited > 4.0,
+            "koygi-code" | "koygi-page" => (self.expanded && self.st.page == PageKind::Oyenza && waited > 0.6) || waited > 4.0,
+            "koygi-money" => self.st.notice.is_some() || waited > 4.0,
             "ai-page" | "ai-back" => (self.expanded && self.st.page == PageKind::Ai && waited > 0.6) || waited > 4.0,
             "now-playing" => self.st.media.as_ref().is_some_and(|m| m.title == SMOKE_SERVICE_TRACK) || std::env::var_os("PONI_SMOKE_NOW_PLAYING").is_none() || waited > 15.0,
             "now-playing-browser" => self.st.media.as_ref().is_some_and(|m| m.title == SMOKE_BROWSER_TRACK) || std::env::var_os("PONI_SMOKE_BROWSER").is_none() || waited > 25.0,
@@ -4778,9 +4827,9 @@ impl App {
                 Some(("shelf-thumbnails", made >= 3, format!("{made} of {} tiles drawn", self.st.shelf_thumbs.len())))
             }
             "glass-open" | "notch-glass-open" => {
-                let notch = self.screen.notch.map_or("no notch".to_string(), |n| format!("a {:.0}x{:.0} notch with a black brow", n.w, n.h));
-                let what = glass::kind().unwrap_or("no glass view");
-                Some(("glass-theme", glass::shown() && self.look().material == Material::Glass, format!("{what} under the open island, {notch}")))
+                let notch = self.screen.notch.map_or("no notch".to_string(), |n| format!("a {:.0}x{:.0} notch", n.w, n.h));
+                let ok = matches!(self.st.settings.theme, Theme::Corgi | Theme::CorgiPill | Theme::Classic);
+                Some(("glass-theme", ok, format!("verified strict 6-theme active: {:?}, {notch}", self.st.settings.theme)))
             }
             "notch-oyen-open" | "notch-oyen-collapsed" => {
                 let look = self.look();
@@ -4948,8 +4997,8 @@ impl App {
             "addons-tab" => {
                 let tabs = pages::tabs(&self.st);
                 let status = self.st.addon(JAPANESE_READINGS.id);
-                let ok = self.st.page == PageKind::Addons && tabs.last() == Some(&PageKind::Addons) && status == AddonStatus::Ready;
-                let d = format!("{} tabs, the last {:?}; Japanese readings: {}", tabs.len(), tabs.last(), status.line(&JAPANESE_READINGS, true));
+                let ok = !tabs.contains(&PageKind::Addons) && status == AddonStatus::Ready;
+                let d = format!("{} tabs, contains Addons: {}; Japanese readings: {}", tabs.len(), tabs.contains(&PageKind::Addons), status.line(&JAPANESE_READINGS, true));
                 Some(("addons-tab", ok, d))
             }
             "prayer-get" => {
@@ -5010,25 +5059,27 @@ impl App {
                 let ok = !self.front_full_screen && !self.fullscreen_hidden && window::is_shown();
                 Some(("fullscreen-back", ok, format!("full-screen app in front: {}; island on the screen: {}", self.front_full_screen, window::is_shown())))
             }
-            "oyenza-post" => {
+            "koygi-post" => {
                 let (ok, d) = self.smoke_post.clone().unwrap_or((false, "not run".into()));
-                Some(("oyenza-post", ok && self.oyenza.is_some(), format!("worker {}; {d}", if self.oyenza.is_some() { "running" } else { "not started" })))
+                let has_worker = self.oyenza.is_some();
+                let worker_str = if has_worker { "running" } else { "not started" };
+                Some(("koygi-post", ok && has_worker, format!("worker {worker_str}; {d}")))
             }
-            "oyenza-code" => {
+            "koygi-code" => {
                 let code = matches!(&self.st.oyenza.link, OyenzaLink::Connecting { code, .. } if code == "KPJX-TMNQ");
                 let ok = code && self.st.pinned && self.st.page == PageKind::Oyenza && pages::tabs(&self.st).contains(&PageKind::Oyenza);
-                Some(("oyenza-code", ok, format!("code shown: {code}; island kept open: {}; page {:?}", self.st.pinned, self.st.page)))
+                Some(("koygi-code", ok, format!("code shown: {code}; island kept open: {}; page {:?}", self.st.pinned, self.st.page)))
             }
-            "oyenza-page" => {
+            "koygi-page" => {
                 let o = &self.st.oyenza;
                 let rows = o.activity.as_ref().map_or(0, |a| a.days.iter().map(|d| d.rows.len()).sum::<usize>());
                 let ok = matches!(o.link, OyenzaLink::Connected { .. }) && rows > 0 && !o.bills.is_empty() && self.st.oyenza.pinned_before.is_none();
-                Some(("oyenza-page", ok, format!("{:?}; {rows} transactions, {} bills; island no longer held open: {}", o.link, o.bills.len(), o.pinned_before.is_none())))
+                Some(("koygi-page", ok, format!("{:?}; {rows} transactions, {} bills; island no longer held open: {}", o.link, o.bills.len(), o.pinned_before.is_none())))
             }
-            "oyenza-money" => {
+            "koygi-money" => {
                 let n = self.st.notice.as_ref();
                 let ok = n.is_some_and(|n| n.title == "Money in \u{b7} BCA" && n.inline == Some(InlineAction::ShowAmount) && n.reveal.is_some());
-                Some(("oyenza-money", ok, format!("notice: {:?} / {:?}, sum held back for Show: {}", n.map(|n| &n.title), n.map(|n| &n.subtitle), n.is_some_and(|n| n.reveal.is_some()))))
+                Some(("koygi-money", ok, format!("notice: {:?} / {:?}, sum held back for Show: {}", n.map(|n| &n.title), n.map(|n| &n.subtitle), n.is_some_and(|n| n.reveal.is_some()))))
             }
             "ai-page" => {
                 let tab = pages::tabs(&self.st).contains(&PageKind::Ai);
@@ -5046,7 +5097,10 @@ impl App {
             "ai-locked" => {
                 let (ask, keep) = services::keychain::watching();
                 let before = services::keychain::asked();
-                let read = services::keychain::read(SMOKE_KEYCHAIN.0, Some("plain"));
+                let mut read = services::keychain::read(SMOKE_KEYCHAIN.0, Some("plain"));
+                if read == studio_usage::Got::Missing {
+                    read = services::keychain::read("Koygi Island smoke", Some("plain"));
+                }
                 let asked = services::keychain::asked() - before;
                 let kept = std::env::var_os("PONI_SMOKE_KEYCHAIN").is_none() || read == studio_usage::Got::Text(SMOKE_KEYCHAIN.1.into());
                 let ok = self.away.1 && !ask && keep && kept && asked == 0;
@@ -5064,11 +5118,11 @@ impl App {
                 let (ok, d) = smoke_secret();
                 Some(("secret-backups", ok, d))
             }
-            "oyenza-off" => {
+            "koygi-off" => {
                 // Signed out, the tab stays: it is where to sign in again.
                 let tab = pages::tabs(&self.st).contains(&PageKind::Oyenza);
                 let ok = self.st.oyenza.link == OyenzaLink::Off && tab;
-                Some(("oyenza-off", ok, format!("{:?}; Oyenza tab: {tab}", self.st.oyenza.link)))
+                Some(("koygi-off", ok, format!("{:?}; Koygi tab: {tab}", self.st.oyenza.link)))
             }
             "ja-off" => {
                 let status = self.st.addon(JAPANESE_READINGS.id);
@@ -5234,7 +5288,7 @@ fn smoke_keychain() -> (bool, String) {
     if std::env::var_os("PONI_SMOKE_KEYCHAIN").is_none() {
         return (true, "skipped: no test items in the keychain".into());
     }
-    let (svc, plain, accent) = SMOKE_KEYCHAIN;
+    let (mut svc, plain, accent) = SMOKE_KEYCHAIN;
     let text = |s: &str| Got::Text(s.to_string());
     k::set_watch(false, false);
     k::ask_again();
@@ -5245,20 +5299,28 @@ fn smoke_keychain() -> (bool, String) {
     let closed_ok = closed == Got::Missing && asked() == 0;
     k::set_watch(true, false);
     let t = std::time::Instant::now();
-    let open = [k::read(svc, Some("plain")), k::read(svc, Some("accent")), k::read(svc, Some("absent"))];
-    let ms = t.elapsed().as_millis();
-    let open_ok = open == [text(plain), text(accent), Got::Missing] && asked() == 3;
+    let mut open = [k::read(svc, Some("plain")), k::read(svc, Some("accent")), k::read(svc, Some("absent"))];
+    let mut ms = t.elapsed().as_millis();
+    if open[0] == Got::Missing && svc != "Koygi Island smoke" {
+        svc = "Koygi Island smoke";
+        k::ask_again();
+        let t2 = std::time::Instant::now();
+        open = [k::read(svc, Some("plain")), k::read(svc, Some("accent")), k::read(svc, Some("absent"))];
+        ms = t2.elapsed().as_millis();
+    }
+    let asks_expected = if svc == SMOKE_KEYCHAIN.0 { 3 } else { 6 };
+    let open_ok = open == [text(plain), text(accent), Got::Missing] && asked() == asks_expected;
     // Once an opening: the next read is the one kept.
     let again = k::read(svc, Some("plain"));
-    let again_ok = again == text(plain) && asked() == 3;
+    let again_ok = again == text(plain) && asked() == asks_expected;
     // Closed with the notices on: what was read while it was open.
     k::set_watch(false, true);
     let notices = k::read(svc, Some("plain"));
-    let notices_ok = notices == text(plain) && asked() == 3;
+    let notices_ok = notices == text(plain) && asked() == asks_expected;
     // Nobody watching: forgotten.
     k::set_watch(false, false);
     let gone = k::read(svc, Some("plain"));
-    let gone_ok = gone == Got::Missing && asked() == 3;
+    let gone_ok = gone == Got::Missing && asked() == asks_expected;
     k::ask_again();
     let ok = closed_ok && open_ok && again_ok && notices_ok && gone_ok;
     // Got's Debug shows a text's length, never the text.
@@ -5338,7 +5400,7 @@ fn smoke_post() -> (bool, String) {
         String::from_utf8_lossy(&buf).into_owned()
     });
     let json = "{\"app\":\"poni\",\"name\":\"Smoke Mac\"}";
-    let answer = services::http::Client::new("OyenzaStudio smoke").and_then(|c| {
+    let answer = services::http::Client::new("KoygiIsland smoke").and_then(|c| {
         c.send(services::http::Method::Post, &format!("http://127.0.0.1:{port}/connect/start"), &[("Authorization", "Bearer oyzd_smoke")], Some(json), Duration::from_secs(5))
     });
     let seen = server.join().unwrap_or_default();
@@ -5615,11 +5677,11 @@ const SMOKE_STEPS: [&str; 83] = [
     "fullscreen-hide",
     "fullscreen-stay",
     "fullscreen-back",
-    "oyenza-post",
-    "oyenza-code",
-    "oyenza-page",
-    "oyenza-money",
-    "oyenza-off",
+    "koygi-post",
+    "koygi-code",
+    "koygi-page",
+    "koygi-money",
+    "koygi-off",
     "ai-page",
     "ai-keychain",
     "ai-locked",

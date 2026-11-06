@@ -1,4 +1,4 @@
-﻿//! The open Music page in the Pill theme, laid out like the card in ref1:
+//! The open Music page in the Pill theme, laid out like the card in ref1:
 //! the album art on the left, the player's name in small grey capitals, the
 //! title and the artist beside it, the equalizer at the top right in the
 //! album's colour, one progress row (elapsed, the bar, time left), and the
@@ -424,6 +424,7 @@ const EQ_PAUSED_ALPHA: f32 = 0.45;
 
 /// Four bars ending at `right`.
 fn equalizer(ui: &mut Ui, right: f32, cy: f32, color: Color, eq: EqState, _t: f64) {
+    let color = ui.c.look().guard_accent(color);
     let x0 = right - eq_width();
     let color = if eq == EqState::Paused { color.mul_alpha(EQ_PAUSED_ALPHA) } else { color };
     for i in 0..EQ_BARS {

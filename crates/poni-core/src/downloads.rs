@@ -759,7 +759,7 @@ mod tests {
             "ftp://archive.org/details/BigBuckBunny_124",
             "file:///C:/Users/Luca/Videos/a.mp4",
             "javascript:alert(1)",
-            "mailto:hello@oyenza.com",
+            "mailto:hello@koygi.com",
             "https://",
             "https:///details",
             "https://?q=1",
