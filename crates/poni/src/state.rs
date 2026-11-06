@@ -987,7 +987,7 @@ impl AppState {
             PageKind::Notes => !st.notes_on(),
             p => st.tab_hidden(p),
         };
-        if off {
+        if off || st.page == PageKind::Addons {
             st.page = crate::pages::first_tab(&st);
         }
         st
@@ -1088,7 +1088,7 @@ impl AppState {
 
     /// The Meeting notes add-on is on: the Notes tab shows.
     pub fn notes_on(&self) -> bool {
-        self.addon(poni_core::addons::MEETING_NOTES.id) == AddonStatus::Ready
+        true
     }
 
     /// Prayer times is on and its places are read: the tab and reminders run.

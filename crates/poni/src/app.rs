@@ -3715,11 +3715,11 @@ fn trim_working_set(&self) {
             PageKind::Downloads => !self.st.downloader_on(),
             PageKind::Notifications => !self.st.notifications_on(),
             PageKind::Ielts => !self.st.ielts_on(),
-            PageKind::Notes => !self.st.notes_on(),
+            PageKind::Notes => false,
             _ => false,
         };
-        if gone {
-            self.st.page = PageKind::Addons;
+        if gone || self.st.page == PageKind::Addons {
+            self.st.page = crate::pages::first_tab(&self.st);
         }
     }
 
