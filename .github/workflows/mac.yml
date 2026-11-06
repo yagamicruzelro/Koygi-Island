@@ -44,17 +44,15 @@ jobs:
         run: |
           set -o pipefail
           cargo build -p poni --release --target aarch64-apple-darwin 2>&1 | tee /tmp/build_arm.log || {
-            echo "### aarch64 Build Failed" >> "$GITHUB_STEP_SUMMARY"
-            echo '```text' >> "$GITHUB_STEP_SUMMARY"
-            tail -n 60 /tmp/build_arm.log >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 30 /tmp/build_arm.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
             exit 1
           }
           cargo build -p poni --release --target x86_64-apple-darwin 2>&1 | tee /tmp/build_x86.log || {
-            echo "### x86_64 Build Failed" >> "$GITHUB_STEP_SUMMARY"
-            echo '```text' >> "$GITHUB_STEP_SUMMARY"
-            tail -n 60 /tmp/build_x86.log >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 30 /tmp/build_x86.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
             exit 1
           }
 
