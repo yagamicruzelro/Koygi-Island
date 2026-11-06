@@ -44,28 +44,12 @@ jobs:
         run: |
           set -o pipefail
           cargo build -p poni --release --target aarch64-apple-darwin 2>&1 | tee /tmp/build_arm.log || {
-            python3 -c '
-import sys, re
-with open("/tmp/build_arm.log") as f:
-    lines = f.readlines()
-for i, line in enumerate(lines):
-    if "error[" in line or "error:" in line:
-        snippet = "".join(lines[max(0, i-1):min(len(lines), i+8)])
-        print("::error::" + snippet.replace("\n", " %0A "))
-'
+            python3 tools/print_cargo_errors.py /tmp/build_arm.log
             tail -n 120 /tmp/build_arm.log
             exit 1
           }
           cargo build -p poni --release --target x86_64-apple-darwin 2>&1 | tee /tmp/build_x86.log || {
-            python3 -c '
-import sys, re
-with open("/tmp/build_x86.log") as f:
-    lines = f.readlines()
-for i, line in enumerate(lines):
-    if "error[" in line or "error:" in line:
-        snippet = "".join(lines[max(0, i-1):min(len(lines), i+8)])
-        print("::error::" + snippet.replace("\n", " %0A "))
-'
+            python3 tools/print_cargo_errors.py /tmp/build_x86.log
             tail -n 120 /tmp/build_x86.log
             exit 1
           }
