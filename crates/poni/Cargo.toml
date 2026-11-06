@@ -9,10 +9,6 @@ description = "Koygi - Dynamic Notch for Windows by Ryo"
 build = "build.rs"
 
 [[bin]]
-name = "koygi"
-path = "src/main.rs"
-
-[[bin]]
 name = "poni"
 path = "src/main.rs"
 
