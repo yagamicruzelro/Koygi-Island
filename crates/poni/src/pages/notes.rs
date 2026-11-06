@@ -26,7 +26,7 @@ pub fn draw(ui: &mut Ui, st: &mut AppState, area: Rect) {
     let top_y = full.y + 12.0;
     // Header
     let head_r = Rect::new(full.x + 16.0, top_y, 160.0, 20.0);
-    ui.c.text("Quick Notes & Memos", head_r, &TextStyle::headline().color(accent));
+    ui.c.text("Quick Notes & Memos", head_r, &TextStyle::headline().weight(crate::gfx::Weight::Bold).color(palette::TEXT));
 
     let open_w = 88.0;
     let clear_w = 64.0;
@@ -61,11 +61,11 @@ pub fn draw(ui: &mut Ui, st: &mut AppState, area: Rect) {
         &mut st.scratchpad_input,
         "Type note or prompt... (Enter to save)",
         200,
-        accent,
+        palette::TEXT,
         Some(Icon::Plus),
     );
     let add_r = Rect::new(in_r.right() + 8.0, in_y, add_w, in_h);
-    let add_click = ui.pill(wid("notes.note_add"), add_r, "+ Add", None, PillStyle::UtilityAccent(accent)).clicked;
+    let add_click = ui.pill(wid("notes.note_add"), add_r, "+ Add", None, PillStyle::Utility).clicked;
     if (resp.submitted || add_click) && !st.scratchpad_input.trim().is_empty() {
         st.cmd(Command::AddScratchpadNote(st.scratchpad_input.clone()));
     }

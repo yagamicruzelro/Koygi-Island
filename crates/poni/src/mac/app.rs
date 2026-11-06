@@ -5474,10 +5474,12 @@ fn system_report(st: &AppState) -> (bool, String) {
     (ok, detail)
 }
 
-/// Oyen's orange in his theme, the Mac's accent colour otherwise.
+/// Oren's orange or Corgi's golden in mascot themes, the Mac's accent colour otherwise.
 pub(crate) fn theme_accent(theme: Theme) -> Color {
     if oyen::on(theme) {
-        oyen::ORANGE
+        Color::hex(0xFF8A00)
+    } else if crate::corgi::on(theme) {
+        crate::corgi::GOLDEN
     } else {
         services::system_accent().unwrap_or(palette::BLUE)
     }

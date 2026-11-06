@@ -4,12 +4,12 @@ use std::path::Path;
 
 /// Open a URL, file path or custom URI scheme using macOS default handler.
 pub fn open(target: &str) {
-    crate::mac::services::open(target);
+    crate::services::open(target);
 }
 
 /// Open Discord app or deep-link channel URL on macOS.
 pub fn open_discord_app(target: &str) {
-    crate::mac::services::open(target);
+    crate::services::open(target);
 }
 
 /// Send shortcut to Discord seamlessly (Windows uses Win32 SendInput).
@@ -19,17 +19,17 @@ pub fn send_discord_shortcut_seamless(_ctrl: bool, _shift: bool, _vk: u16) {
 
 /// Open macOS Login Items settings in System Settings.
 pub fn open_startup_settings() {
-    crate::mac::services::open("x-apple.systempreferences:com.apple.LoginItems-Settings.extension");
+    crate::services::open("x-apple.systempreferences:com.apple.LoginItems-Settings.extension");
 }
 
 /// Open an action link for the recorder.
 pub fn open_recorder_link(link: &str) {
-    crate::mac::services::open(link);
+    crate::services::open(link);
 }
 
 /// Open the Claude desktop app via custom URI scheme.
 pub fn open_claude_app() {
-    crate::mac::services::open("claude://");
+    crate::services::open("claude://");
 }
 
 /// Run an interactive CLI command in macOS Terminal.app.

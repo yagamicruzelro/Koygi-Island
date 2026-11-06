@@ -1414,9 +1414,9 @@ impl App {
                 if msg == WM_SETTINGCHANGE {
                     self.glass.app_light = services::apps_use_light_theme();
                 }
-                if msg == WM_SETTINGCHANGE && false {
-                    self.st.accent = theme_accent(Theme::Corgi);
-                } else if msg == WM_SETTINGCHANGE && !oyen::on(self.st.settings.theme) {
+                if msg == WM_SETTINGCHANGE && (oyen::on(self.st.settings.theme) || crate::corgi::on(self.st.settings.theme)) {
+                    self.st.accent = theme_accent(self.st.settings.theme);
+                } else if msg == WM_SETTINGCHANGE {
                     if let Some(a) = services::system_accent() {
                         self.st.accent = a;
                     }

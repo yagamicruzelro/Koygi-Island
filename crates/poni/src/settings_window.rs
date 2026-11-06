@@ -130,13 +130,14 @@ pub enum Section {
 }
 
 impl Section {
-    pub const ALL: [Section; 9] = [
+    pub const ALL: [Section; 10] = [
         Section::General,
         Section::Appearance,
         Section::Island,
         Section::Music,
         Section::Popups,
         Section::Tabs,
+        Section::Addons,
         Section::Focus,
         Section::Prayer,
         Section::About,
