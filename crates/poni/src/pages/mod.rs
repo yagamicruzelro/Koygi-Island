@@ -284,7 +284,7 @@ fn row(st: &AppState, open: Option<PageKind>) -> Vec<PageKind> {
             PageKind::Oyenza => false,
             PageKind::Addons => false,
             PageKind::Notes => false,
-            PageKind::Health => st.health_on(),
+            PageKind::Health => false,
             PageKind::Ielts => st.ielts_on(),
             PageKind::System => st.system_on(),
             PageKind::Prayer => st.prayer_on(),
@@ -819,7 +819,7 @@ mod tests {
         for id in ["system", "script", "health"] {
             st.addons.insert(id, poni_core::addons::Status::Ready);
         }
-        assert_eq!(&tabs(&st)[5..], [Health, System]);
+        assert_eq!(&tabs(&st)[5..], [System]);
         assert!(!tabs(&st).contains(&Oyenza));
         assert!(!tabs(&st).contains(&Script));
         assert!(!tabs(&st).contains(&Addons));
@@ -919,10 +919,9 @@ mod tests {
     }
 
     #[test]
-    fn system_health_and_stocks_have_a_tab_only_while_their_add_ons_are_on() {
+    fn system_and_stocks_have_a_tab_only_while_their_add_ons_are_on() {
         for (page, addon) in [
             (PageKind::System, poni_core::addons::SYSTEM),
-            (PageKind::Health, poni_core::addons::HEALTH),
             (PageKind::Stocks, poni_core::addons::STOCKS),
         ] {
             let mut st = state();
@@ -1017,13 +1016,12 @@ mod tests {
     }
 
     #[test]
-    fn ielts_has_a_tab_only_while_its_add_on_is_on_after_health() {
-        use PageKind::{Addons, Health, Ielts, Oyenza};
+    fn ielts_has_a_tab_only_while_its_add_on_is_on() {
+        use PageKind::{Addons, Ielts, Oyenza};
         let mut st = state();
         assert!(!tabs(&st).contains(&Ielts), "off for everyone until switched on");
         st.addons.insert("ielts", poni_core::addons::Status::Ready);
-        st.addons.insert("health", poni_core::addons::Status::Ready);
-        assert_eq!(&tabs(&st)[5..], [Health, Ielts]);
+        assert_eq!(&tabs(&st)[5..], [Ielts]);
         assert!(!tabs(&st).contains(&Oyenza));
         assert!(!tabs(&st).contains(&Addons));
         // Signed out it shows the sign-in card; signed in, every state is as

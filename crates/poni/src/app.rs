@@ -3697,7 +3697,7 @@ fn trim_working_set(&self) {
         let gone = match self.st.page {
             PageKind::Prayer => !self.st.prayer_on(),
             PageKind::System => !self.st.system_on(),
-            PageKind::Health => !self.st.health_on(),
+            PageKind::Health => true,
             PageKind::Stocks => !self.st.stocks_on(),
             PageKind::Downloads => !self.st.downloader_on(),
             PageKind::Notifications => !self.st.notifications_on(),

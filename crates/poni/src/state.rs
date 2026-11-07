@@ -982,7 +982,7 @@ impl AppState {
         let off = match st.page {
             PageKind::Script => !st.script_on(),
             PageKind::System => !st.system_on(),
-            PageKind::Health => !st.health_on(),
+            PageKind::Health => true,
             PageKind::Stocks => !st.stocks_on(),
             PageKind::Downloads => !st.downloader_on(),
             PageKind::Record => !st.record_on(),
@@ -1047,7 +1047,7 @@ impl AppState {
 
     /// The Health add-on is on: the Health tab shows and the steps are asked for.
     pub fn health_on(&self) -> bool {
-        self.addon(poni_core::addons::HEALTH.id) == AddonStatus::Ready
+        false
     }
 
     /// The Stocks add-on is on: the Stocks tab shows (its prices are asked

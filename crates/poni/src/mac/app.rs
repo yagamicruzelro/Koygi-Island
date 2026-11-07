@@ -3710,7 +3710,7 @@ impl App {
         let gone = match self.st.page {
             PageKind::Prayer => !self.st.prayer_on(),
             PageKind::System => !self.st.system_on(),
-            PageKind::Health => !self.st.health_on(),
+            PageKind::Health => true,
             PageKind::Stocks => !self.st.stocks_on(),
             PageKind::Record => !self.st.record_on(),
             PageKind::Ielts => !self.st.ielts_on(),
