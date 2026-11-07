@@ -39,6 +39,9 @@ use crate::datetime::{civil_from_days, days_from_civil};
 use adhan::{HighLatitudeRule, Params};
 pub use world::World;
 
+/// Web address for Quran reading and recitation services.
+pub const QURAN_URL: &str = "https://quran.oyenza.com/";
+
 /// One place in the add-on's place list (`addons/sholat/places.json`).
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct Place {

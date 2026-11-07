@@ -1918,7 +1918,11 @@ impl App {
     /// Prayer times' files are in place: read its places, settle the place,
     /// and ask where the Mac is when following the location.
     fn prayer_ready(&mut self) {
-        let path = services::addons::file_path(&PRAYER_TIMES, "places.json");
+        let path = Self::places_json_path();
+        let Some(path) = path else {
+            pwarn!("prayer: places.json not found on disk");
+            return;
+        };
         match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|t| PlaceList::parse(&t)) {
             Ok(list) => {
                 pinfo!("prayer: {} places", list.places.len());
@@ -2050,12 +2054,90 @@ impl App {
         if adzan {
             self.st.set_notice_inline(InlineAction::StopAdzan);
         }
+        self.request_frame();
         pinfo!("prayer: {} at {}{}", m.prayer.name(), site.hhmm(m.at), if ring { "" } else { ", quietly" });
+    }
+
+    /// Locate places.json with fallbacks (downloaded addon, addon dir, repo, bundle resources, dev root).
+    pub(crate) fn places_json_path() -> Option<std::path::PathBuf> {
+        let is_valid = |p: &std::path::Path| p.is_file() && p.metadata().map_or(false, |m| m.len() >= 100);
+        let candidates = [
+            services::addons::file_path(&PRAYER_TIMES, "places.json"),
+            paths::addons_dir().join(PRAYER_TIMES.id).join("places.json"),
+            std::path::PathBuf::from("addons").join("sholat").join("places.json"),
+        ];
+        for p in candidates {
+            if is_valid(&p) {
+                return Some(p);
+            }
+        }
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(dir) = exe.parent() {
+                let candidates = [
+                    dir.join("addons").join("sholat").join("places.json"),
+                    dir.join("../Resources/addons/sholat/places.json"),
+                    dir.join("../Resources/places.json"),
+                    dir.join("places.json"),
+                ];
+                for p in candidates {
+                    if is_valid(&p) {
+                        return Some(p);
+                    }
+                }
+                for ancestor in dir.ancestors() {
+                    let p = ancestor.join("addons").join("sholat").join("places.json");
+                    if is_valid(&p) {
+                        return Some(p);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Locate adzan.m4a with fallbacks (downloaded addon, addon dir, repo, bundle resources, dev root).
+    pub(crate) fn adzan_audio_path() -> Option<std::path::PathBuf> {
+        let is_valid = |p: &std::path::Path| p.is_file() && p.metadata().map_or(false, |m| m.len() >= 1024);
+        let candidates = [
+            services::addons::file_path(&PRAYER_TIMES, "adzan.m4a"),
+            paths::addons_dir().join(PRAYER_TIMES.id).join("adzan.m4a"),
+            std::path::PathBuf::from("addons").join("sholat").join("adzan.m4a"),
+        ];
+        for p in candidates {
+            if is_valid(&p) {
+                return Some(p);
+            }
+        }
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(dir) = exe.parent() {
+                let candidates = [
+                    dir.join("addons").join("sholat").join("adzan.m4a"),
+                    dir.join("../Resources/addons/sholat/adzan.m4a"),
+                    dir.join("../Resources/adzan.m4a"),
+                    dir.join("adzan.m4a"),
+                ];
+                for p in candidates {
+                    if is_valid(&p) {
+                        return Some(p);
+                    }
+                }
+                for ancestor in dir.ancestors() {
+                    let p = ancestor.join("addons").join("sholat").join("adzan.m4a");
+                    if is_valid(&p) {
+                        return Some(p);
+                    }
+                }
+            }
+        }
+        None
     }
 
     /// Start the adzan; music that plays pauses (and stays paused).
     fn play_adzan(&mut self) -> bool {
-        let path = services::addons::file_path(&PRAYER_TIMES, "adzan.m4a");
+        let Some(path) = Self::adzan_audio_path() else {
+            pwarn!("prayer: adzan.m4a not found on disk; playing tone instead");
+            return false;
+        };
         match self.adzan.play(self.mtm, &path, &self.sink) {
             Ok(()) => {
                 self.st.prayer.adzan = true;
@@ -2090,6 +2172,7 @@ impl App {
         if let Some(n) = self.st.notice.as_mut().filter(|n| n.inline == Some(InlineAction::StopAdzan)) {
             n.until = n.until.min(soon);
         }
+        self.request_frame();
     }
 
     /// (player, track, playing) of the current media session.

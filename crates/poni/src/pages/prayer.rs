@@ -86,7 +86,7 @@ const FOOT_H: f32 = 28.0;
 const SEARCH_H: f32 = 32.0;
 const RESULT_H: f32 = 26.0;
 const RESULTS: usize = 8;
-const QURAN: &str = "https://quran.com";
+pub const QURAN: &str = poni_core::prayer::QURAN_URL;
 /// Where location is allowed for Koygi Island: Windows' Settings › Privacy &
 /// security › Location, or the Mac's System Settings › Privacy & Security ›
 /// Location Services.
@@ -631,5 +631,61 @@ mod tests {
         assert_eq!(compass(0.0), "N");
         assert_eq!(compass(359.0), "N");
         assert_eq!(compass(90.0), "E");
+    }
+
+    #[test]
+    fn quran_endpoint_points_to_oyenza_quran() {
+        assert_eq!(QURAN, "https://quran.oyenza.com/");
+        assert_eq!(poni_core::prayer::QURAN_URL, "https://quran.oyenza.com/");
+    }
+
+    #[test]
+    fn sunrise_to_sundown_animates_sun_during_day_and_moon_at_night() {
+        // Sunrise (terbit) = 05:45 (345 min), Sundown (maghrib) = 17:55 (1075 min)
+        let terbit = 1_000_000 + 345 * 60;
+        let maghrib = 1_000_000 + 1075 * 60;
+        let day_range = terbit..maghrib;
+
+        // Before sunrise (night) -> Moon
+        assert!(!day_range.contains(&(terbit - 60)));
+        // Exactly at sunrise -> Sun
+        assert!(day_range.contains(&terbit));
+        // Midday (Dzuhur, transit) -> Sun
+        assert!(day_range.contains(&(terbit + 300 * 60)));
+        // Right before sundown -> Sun
+        assert!(day_range.contains(&(maghrib - 1)));
+        // At sundown and after -> Moon
+        assert!(!day_range.contains(&maghrib));
+        assert!(!day_range.contains(&(maghrib + 60)));
+    }
+
+    #[test]
+    fn prayer_sound_options_support_adzan_and_tone() {
+        assert_eq!(SOUNDS[0].0, PrayerSound::Adzan);
+        assert_eq!(SOUNDS[1].0, PrayerSound::Tone);
+        assert_eq!(SOUNDS[2].0, PrayerSound::Silent);
+    }
+
+    #[test]
+    fn day_pos_maps_strictly_increasing_coordinates() {
+        let midnight = 1_000_000;
+        let at = [
+            midnight + 4 * 3600 + 30 * 60, // Subuh
+            midnight + 12 * 3600,          // Dzuhur
+            midnight + 15 * 3600 + 15 * 60,// Ashar
+            midnight + 18 * 3600,          // Maghrib
+            midnight + 19 * 3600 + 15 * 60,// Isya
+        ];
+        let p_start = day_pos(midnight, midnight, at);
+        assert_eq!(p_start, 0.0);
+        let p_subuh = day_pos(at[0], midnight, at);
+        assert_eq!(p_subuh, SLOTS[0]);
+        let p_dzuhur = day_pos(at[1], midnight, at);
+        assert_eq!(p_dzuhur, SLOTS[1]);
+        let p_isya = day_pos(at[4], midnight, at);
+        assert_eq!(p_isya, SLOTS[4]);
+        let p_end = day_pos(midnight + 86_400, midnight, at);
+        assert_eq!(p_end, 1.0);
+        assert!(p_start < p_subuh && p_subuh < p_dzuhur && p_dzuhur < p_isya && p_isya < p_end);
     }
 }

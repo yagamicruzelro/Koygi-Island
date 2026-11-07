@@ -23,6 +23,9 @@ impl AdzanPlayer {
     /// caller plays the tone instead).
     pub fn play(&mut self, path: &Path, sink: &EventSink) -> Result<(), String> {
         self.stop();
+        if !path.is_file() || path.metadata().map_or(0, |m| m.len()) < 1024 {
+            return Err(format!("adzan file invalid or missing: {}", path.display()));
+        }
         let uri = Uri::CreateUri(&HSTRING::from(file_uri(path))).map_err(|e| format!("bad path ({e})"))?;
         let player = MediaPlayer::new().map_err(|e| format!("no media player ({e})"))?;
         // No media session: the adzan isn't a song.
@@ -38,7 +41,8 @@ impl AdzanPlayer {
         }));
         let failed = sink.clone();
         let _ = player.MediaFailed(&TypedEventHandler::new(move |_, _| {
-            crate::pwarn!("adzan: playback failed");
+            crate::pwarn!("adzan: playback failed; playing tone instead");
+            crate::services::sound::play(crate::commands::Sound::Chime);
             failed.send(AppEvent::AdzanEnded);
             Ok(())
         }));
@@ -54,6 +58,10 @@ impl AdzanPlayer {
             let _ = p.Pause();
             let _ = p.Close();
         }
+    }
+
+    pub fn is_playing(&self) -> bool {
+        self.player.is_some()
     }
 }
 
@@ -81,4 +89,48 @@ mod tests {
         );
         assert_eq!(file_uri(Path::new(r"D:\Müzik\a.m4a")), "file:///D:/M%C3%BCzik/a.m4a");
     }
+
+    #[test]
+    fn missing_adzan_file_returns_error() {
+        let path = Path::new("non_existent_adzan_path.m4a");
+        let (tx, _rx) = std::sync::mpsc::channel();
+        let sink = EventSink::new(tx, crate::events::SendHwnd(0));
+        let mut player = AdzanPlayer::default();
+        let res = player.play(path, &sink);
+        assert!(res.is_err(), "missing file must return error immediately");
+    }
+
+    #[test]
+    fn valid_adzan_file_plays_and_can_be_stopped() {
+        let path = crate::app::App::adzan_audio_path().or_else(|| {
+            let p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../addons/sholat/adzan.m4a");
+            p.is_file().then_some(p)
+        });
+        let Some(path) = path else {
+            return;
+        };
+        let (tx, _rx) = std::sync::mpsc::channel();
+        let sink = EventSink::new(tx, crate::events::SendHwnd(0));
+        let mut player = AdzanPlayer::default();
+        let res = player.play(&path, &sink);
+        assert!(res.is_ok(), "playback should start: {res:?}");
+        assert!(player.is_playing());
+        player.stop();
+        assert!(!player.is_playing());
+    }
+
+    #[test]
+    fn zero_byte_or_corrupted_adzan_file_returns_error() {
+        let dir = std::env::temp_dir().join("poni_test_adzan");
+        let _ = std::fs::create_dir_all(&dir);
+        let empty_path = dir.join("empty_adzan.m4a");
+        let _ = std::fs::write(&empty_path, b"");
+        let (tx, _rx) = std::sync::mpsc::channel();
+        let sink = EventSink::new(tx, crate::events::SendHwnd(0));
+        let mut player = AdzanPlayer::default();
+        let res = player.play(&empty_path, &sink);
+        let _ = std::fs::remove_file(&empty_path);
+        assert!(res.is_err(), "zero-byte file must return error immediately");
+    }
 }
+

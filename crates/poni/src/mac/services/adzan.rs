@@ -30,6 +30,9 @@ impl AdzanPlayer {
     /// caller plays the tone instead).
     pub fn play(&mut self, mtm: MainThreadMarker, path: &Path, sink: &EventSink) -> Result<(), String> {
         self.stop();
+        if !path.is_file() || path.metadata().map_or(0, |m| m.len()) < 1024 {
+            return Err(format!("adzan file invalid or missing: {}", path.display()));
+        }
         let sound = NSSound::initWithContentsOfFile_byReference(<NSSound as AnyThread>::alloc(), &NSString::from_str(&path.to_string_lossy()), true)
             .ok_or_else(|| "can't open the recording".to_string())?;
         let delegate: Retained<AdzanDelegate> = unsafe { msg_send![AdzanDelegate::alloc(mtm), init] };

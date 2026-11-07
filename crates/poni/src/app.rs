@@ -1829,9 +1829,12 @@ impl App {
                     self.collapse();
                 }
             }
-            TIMER_WAKE => unsafe {
-                let _ = KillTimer(self.hwnd, TIMER_WAKE);
-            },
+            TIMER_WAKE => {
+                unsafe {
+                    let _ = KillTimer(self.hwnd, TIMER_WAKE);
+                }
+                self.request_frame();
+            }
             TIMER_SAVE => {
                 unsafe {
                     let _ = KillTimer(self.hwnd, TIMER_SAVE);
@@ -1844,6 +1847,10 @@ impl App {
             TIMER_MINUTE => {
                 self.schedule_minute_timer();
                 self.close_idle_phone();
+                // A prayer's time comes on a whole minute, frames or not
+                // (the displays may sleep).
+                self.refresh_time();
+                self.prayer_tick();
                 if !self.expanded {
                     self.trim_working_set();
                 }
@@ -4410,8 +4417,11 @@ fn trim_working_set(&self) {
     /// Prayer times' files are in place: read its places, settle the place,
     /// and ask where the PC is when following the location.
     fn prayer_ready(&mut self) {
-        let a = &poni_core::addons::PRAYER_TIMES;
-        let path = paths::addons_dir().join(a.id).join(a.tag).join("places.json");
+        let path = Self::places_json_path();
+        let Some(path) = path else {
+            pwarn!("prayer: places.json not found on disk");
+            return;
+        };
         match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|t| PlaceList::parse(&t)) {
             Ok(list) => {
                 pinfo!("prayer: {} places", list.places.len());
@@ -4527,10 +4537,12 @@ fn trim_working_set(&self) {
             PrayerSound::Adzan if m.prayer != Prayer::Subuh => {
                 adzan = self.play_adzan();
                 if !adzan {
-                    self.st.cmd(Command::Play(crate::commands::Sound::Chime));
+                    services::sound::play(crate::commands::Sound::Chime);
                 }
             }
-            PrayerSound::Adzan | PrayerSound::Tone => self.st.cmd(Command::Play(crate::commands::Sound::Chime)),
+            PrayerSound::Adzan | PrayerSound::Tone => {
+                services::sound::play(crate::commands::Sound::Chime);
+            }
             PrayerSound::Silent => {}
         }
         let title = pages::prayer::moment_title(m.prayer);
@@ -4540,13 +4552,88 @@ fn trim_working_set(&self) {
         if adzan {
             self.st.set_notice_inline(InlineAction::StopAdzan);
         }
+        self.request_frame();
         pinfo!("prayer: {} at {}{}", m.prayer.name(), site.hhmm(m.at), if quiet { ", quietly" } else { "" });
+    }
+
+    /// Locate places.json with fallbacks (downloaded addon, addon dir, repo, exe dir, dev root).
+    pub(crate) fn places_json_path() -> Option<std::path::PathBuf> {
+        let is_valid = |p: &std::path::Path| p.is_file() && p.metadata().map_or(false, |m| m.len() >= 100);
+        let a = &poni_core::addons::PRAYER_TIMES;
+        let candidates = [
+            paths::addons_dir().join(a.id).join(a.tag).join("places.json"),
+            paths::addons_dir().join(a.id).join("places.json"),
+            std::path::PathBuf::from("addons").join("sholat").join("places.json"),
+        ];
+        for p in candidates {
+            if is_valid(&p) {
+                return Some(p);
+            }
+        }
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(dir) = exe.parent() {
+                let candidates = [
+                    dir.join("addons").join("sholat").join("places.json"),
+                    dir.join("places.json"),
+                ];
+                for p in candidates {
+                    if is_valid(&p) {
+                        return Some(p);
+                    }
+                }
+                for ancestor in dir.ancestors() {
+                    let p = ancestor.join("addons").join("sholat").join("places.json");
+                    if is_valid(&p) {
+                        return Some(p);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Locate adzan.m4a with fallbacks (downloaded addon, addon dir, repo, exe dir, dev root).
+    pub(crate) fn adzan_audio_path() -> Option<std::path::PathBuf> {
+        let is_valid = |p: &std::path::Path| p.is_file() && p.metadata().map_or(false, |m| m.len() >= 1024);
+        let a = &poni_core::addons::PRAYER_TIMES;
+        let candidates = [
+            paths::addons_dir().join(a.id).join(a.tag).join("adzan.m4a"),
+            paths::addons_dir().join(a.id).join("adzan.m4a"),
+            std::path::PathBuf::from("addons").join("sholat").join("adzan.m4a"),
+        ];
+        for p in candidates {
+            if is_valid(&p) {
+                return Some(p);
+            }
+        }
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(dir) = exe.parent() {
+                let candidates = [
+                    dir.join("addons").join("sholat").join("adzan.m4a"),
+                    dir.join("adzan.m4a"),
+                ];
+                for p in candidates {
+                    if is_valid(&p) {
+                        return Some(p);
+                    }
+                }
+                for ancestor in dir.ancestors() {
+                    let p = ancestor.join("addons").join("sholat").join("adzan.m4a");
+                    if is_valid(&p) {
+                        return Some(p);
+                    }
+                }
+            }
+        }
+        None
     }
 
     /// Start the adzan; music that plays pauses (and stays paused).
     fn play_adzan(&mut self) -> bool {
-        let a = &poni_core::addons::PRAYER_TIMES;
-        let path = paths::addons_dir().join(a.id).join(a.tag).join("adzan.m4a");
+        let Some(path) = Self::adzan_audio_path() else {
+            pwarn!("prayer: adzan.m4a not found on disk; playing tone instead");
+            return false;
+        };
         match self.adzan.play(&path, &self.sink) {
             Ok(()) => {
                 self.st.prayer.adzan = true;
@@ -4872,6 +4959,7 @@ fn trim_working_set(&self) {
         if let Some(n) = self.st.notice.as_mut().filter(|n| n.inline == Some(InlineAction::StopAdzan)) {
             n.until = n.until.min(soon);
         }
+        self.request_frame();
     }
 
     fn set_page(&mut self, p: PageKind) {
@@ -6055,5 +6143,31 @@ mod tests {
                 assert_eq!(surface_size(&i, 620.0, 400.0, s, mon_w), classic, "back to Classic at {s} on {mon_w}");
             }
         }
+    }
+
+    #[test]
+    fn places_json_and_adzan_audio_paths_resolve_valid_assets() {
+        let places = App::places_json_path().expect("places.json must resolve in repository tree");
+        assert!(places.is_file(), "places.json path must exist: {}", places.display());
+        assert!(places.metadata().unwrap().len() >= 100);
+
+        let adzan = App::adzan_audio_path().expect("adzan.m4a must resolve in repository tree");
+        assert!(adzan.is_file(), "adzan.m4a path must exist: {}", adzan.display());
+        assert!(adzan.metadata().unwrap().len() >= 1024);
+    }
+
+    #[test]
+    fn minute_turn_within_two_minutes_is_ring_and_beyond_is_quiet() {
+        use poni_core::prayer::{due, Due};
+        let prayer_at = 1_700_000_000;
+        // On the minute:
+        assert_eq!(due(prayer_at, prayer_at), Due::Ring);
+        assert_eq!(due(prayer_at, prayer_at + 20), Due::Ring);
+        assert_eq!(due(prayer_at, prayer_at + 120), Due::Ring);
+        // Late by more than 2 minutes:
+        assert_eq!(due(prayer_at, prayer_at + 121), Due::Quiet);
+        assert_eq!(due(prayer_at, prayer_at + 600), Due::Quiet);
+        // Late by more than 30 minutes:
+        assert_eq!(due(prayer_at, prayer_at + 1801), Due::Skip);
     }
 }

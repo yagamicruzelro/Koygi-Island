@@ -34,6 +34,12 @@ if [ "$icns" != "-" ]; then
   cp "$icns" "$app/Contents/Resources/OyenzaStudio.icns"
 fi
 
+# Bundle default add-ons (including sholat/places.json and adzan.m4a)
+if [ -d "$root/addons" ]; then
+  mkdir -p "$app/Contents/Resources/addons"
+  cp -R "$root/addons/"* "$app/Contents/Resources/addons/"
+fi
+
 # What plays, from macOS's own now playing (browsers, Spotify, Music): the MediaRemote adapter's framework
 # and script (third_party/mediaremote-adapter), which /usr/bin/perl runs for the app
 # (crates/poni/src/mac/services/mediaremote.rs). MEDIAREMOTE_BUILD is its CMake build (mac.yml); without
