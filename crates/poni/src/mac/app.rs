@@ -1855,7 +1855,7 @@ impl App {
                 self.front_full_screen = on;
                 self.apply_fullscreen();
             }
-            AppEvent::Oyenza(ev) => self.on_oyenza(ev),
+            AppEvent::Koygi(ev) | AppEvent::Oyenza(ev) => self.on_oyenza(ev),
             AppEvent::Discord(state) => {
                 self.st.discord = state;
                 self.request_frame();
@@ -3025,7 +3025,7 @@ impl App {
                 // Paired phones come to the Mac in a later slice (its Shelf
                 // shows no Pair a phone yet).
                 Command::Pair(_) => {}
-                Command::Oyenza(c) => self.oyenza(c),
+                Command::Koygi(c) | Command::Oyenza(c) => self.oyenza(c),
                 Command::GetCities(file) => services::cities::fetch(file, self.sink.clone()),
                 Command::Download(c) => self.download_cmd(c),
                 // Notifications is a Windows add-on: a Mac can't read other apps' notifications.
