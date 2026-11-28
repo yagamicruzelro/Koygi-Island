@@ -32,4 +32,4 @@
 
 </details>
 
-<sub>Updated 27 Nov 2026, 04:35 UTC by [Download stats](https://github.com/yagamicruzelro/Koygi-Island/actions/workflows/metrics.yml), every hour · Data: [downloads](data/downloads.csv), [CI downloads](data/ci-downloads.csv), [stars](data/repo.csv), [summary.json](summary.json)</sub>
+<sub>Updated 28 Nov 2026, 05:00 UTC by [Download stats](https://github.com/yagamicruzelro/Koygi-Island/actions/workflows/metrics.yml), every hour · Data: [downloads](data/downloads.csv), [CI downloads](data/ci-downloads.csv), [stars](data/repo.csv), [summary.json](summary.json)</sub>
